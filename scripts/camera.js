@@ -2,14 +2,13 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const captureBtn = document.getElementById('capture');
 
-// Activar cámara TRASERA
+// Activar cámara trasera
 navigator.mediaDevices.getUserMedia({
   video: { facingMode: { exact: "environment" } }
 }).then(stream => {
   video.srcObject = stream;
-}).catch(error => {
-  // Fallback si no se encuentra cámara trasera
-  console.warn("No se pudo acceder a la cámara trasera:", error);
+}).catch(() => {
+  // Fallback si no se puede acceder a la trasera
   navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
     video.srcObject = stream;
   });

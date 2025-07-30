@@ -1,0 +1,58 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 1rem;
+    background-color: #f0f2f5;
+  }
+  
+  video {
+    width: 100%;
+    max-width: 400px;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+  }
+  
+  canvas {
+    display: block;
+    margin: 1rem auto;
+    border: 1px dashed #999;
+  }
+  
+  button {
+    margin: 0.5rem;
+    padding: 0.7rem 1.2rem;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  #loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1rem auto;
+    font-weight: bold;
+    color: #007bff;
+  }
+  
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 5px solid #cce5ff;
+    border-top: 5px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  

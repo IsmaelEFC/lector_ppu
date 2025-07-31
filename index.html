@@ -128,6 +128,28 @@
     <p id="result"></p>
   </div>
   
-  <script type="module" src="./main.js"></script>
+  <script type="module">
+    // Wait for the DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('DOM fully loaded');
+      
+      try {
+        // Import the main module
+        const { default: LicensePlateReader } = await import('./main.js');
+        
+        // Initialize the application
+        window.app = new LicensePlateReader();
+        console.log('Application initialized');
+        
+      } catch (error) {
+        console.error('Error initializing application:', error);
+        const result = document.getElementById('result');
+        if (result) {
+          result.textContent = 'Error al cargar la aplicación: ' + error.message;
+          result.style.color = 'red';
+        }
+      }
+    });
+  </script>
 </body>
 </html>

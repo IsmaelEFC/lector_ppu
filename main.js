@@ -1,15 +1,415 @@
 import { loadOCRModel, recognizePlate } from './ocr.js';
 
-document.addEventListener('DOMContentLoaded', () => {
-  const video = document.getElementById('video');
-  const result = document.getElementById('result');
-  const startButton = document.getElementById('startButton');
-  const cameraContainer = document.getElementById('cameraContainer');
-  let recognitionInterval;
+// Define and export the LicensePlateReader class
+export default class LicensePlateReader {
+  constructor() {
+    this.video = null;
+    this.result = null;
+    this.startButton = null;
+    this.cameraContainer = null;
+    this.loading = null;
+    this.recognitionInterval = null;
+    this.stream = null;
+    this.isCameraOn = false;
+    this.isToggling = false; // Track if camera is currently toggling
+    
+    // Bind methods
+    this.initialize = this.initialize.bind(this);
+    this.toggleCamera = this.toggleCamera.bind(this);
+    this.startCamera = this.startCamera.bind(this);
+    this.stopCamera = this.stopCamera.bind(this);
+    this.recognizePlate = this.recognizePlate.bind(this);
+    this.showCameraHelp = this.showCameraHelp.bind(this);
+    
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', this.initialize);
+    } else {
+      setTimeout(this.initialize, 0);
+    }
+  }
 
-  // Show camera help instructions
-  function showCameraHelp() {
+  initialize() {
+    console.log('Initializing License Plate Reader...');
+    
+    try {
+      // Get DOM elements
+      console.log('Searching for DOM elements...');
+      this.video = document.getElementById('video');
+      this.result = document.getElementById('result');
+      this.startButton = document.getElementById('startButton');
+      this.cameraContainer = document.getElementById('cameraContainer');
+      this.loading = document.querySelector('.loading');
+      
+      // Log initialization
+      console.log('DOM elements found:', {
+        video: this.video ? 'Found' : 'Not found',
+        result: this.result ? 'Found' : 'Not found',
+        startButton: this.startButton ? 'Found' : 'Not found',
+        cameraContainer: this.cameraContainer ? 'Found' : 'Not found',
+        loading: this.loading ? 'Found' : 'Not found'
+      });
+      
+      // Log the entire document structure for debugging
+      console.log('Document structure:', document.documentElement.outerHTML);
+      
+      if (!this.video) {
+        console.error('Video element not found in the DOM');
+        this.updateResult('Error: No se pudo encontrar el elemento de video', 'red');
+        return;
+      }
+      
+      // Set up event listeners
+      if (this.startButton) {
+        console.log('Setting up start button event listener');
+        this.startButton.addEventListener('click', this.toggleCamera);
+      } else {
+        console.error('Start button not found');
+      }
+      
+    } catch (error) {
+      console.error('Error during initialization:', error);
+      this.updateResult('Error al inicializar la aplicación', 'red');
+    }
+    
+    // Event listeners are now set up in the constructor
+    // The start button click handler is set up in the initialize method
+    
+    // Initialize OCR model
+    this.initOCR();
+  }
+  
+  async initOCR() {
+    try {
+      console.log('Loading OCR model...');
+      if (this.loading) this.loading.style.display = 'block';
+      if (this.result) this.result.textContent = 'Cargando modelo OCR...';
+      
+      await loadOCRModel();
+      console.log('OCR model loaded successfully');
+      
+      if (this.result) this.result.textContent = 'Listo para escanear';
+    } catch (error) {
+      console.error('Error initializing OCR:', error);
+      if (this.result) {
+        this.result.textContent = 'Error al cargar el modelo OCR';
+        this.result.style.color = 'red';
+      }
+    } finally {
+      if (this.loading) this.loading.style.display = 'none';
+    }
+  }
+  
+  async toggleCamera() {
+    // Prevent multiple simultaneous operations
+    if (this.isToggling) return;
+    this.isToggling = true;
+    
+    try {
+      if (this.isCameraOn) {
+        console.log('Stopping camera...');
+        await this.stopCamera();
+      } else {
+        console.log('Starting camera...');
+        await this.startCamera();
+      }
+    } catch (error) {
+      console.error('Error toggling camera:', error);
+      let errorMessage = 'Error al ' + (this.isCameraOn ? 'detener' : 'iniciar') + ' la cámara';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Permiso de cámara denegado. Por favor, permite el acceso a la cámara.';
+        this.showCameraHelp();
+      } else if (error.message.includes('video')) {
+        errorMessage = 'Error: No se pudo acceder al elemento de video.';
+      }
+      
+      this.updateResult(errorMessage, 'red');
+      
+      // Reset button state on error
+      if (this.startButton) {
+        this.startButton.textContent = this.isCameraOn ? 'Detener Cámara' : 'Iniciar Cámara';
+      }
+    } finally {
+      this.isToggling = false;
+    }
+  }
+  
+  async startCamera() {
+    console.log('Starting camera initialization...');
+    
+    try {
+      // Ensure all required DOM elements are available
+      this.video = document.getElementById('video');
+      this.result = document.getElementById('result');
+      this.startButton = document.getElementById('startButton');
+      this.cameraContainer = document.getElementById('cameraContainer');
+      this.loading = document.querySelector('.loading');
+      
+      // Verify all required elements exist
+      const missingElements = [];
+      if (!this.video) missingElements.push('video');
+      if (!this.result) missingElements.push('result');
+      if (!this.startButton) missingElements.push('startButton');
+      if (!this.cameraContainer) missingElements.push('cameraContainer');
+      if (!this.loading) missingElements.push('loading');
+      
+      if (missingElements.length > 0) {
+        const errorMsg = `Error: No se encontraron los siguientes elementos: ${missingElements.join(', ')}`;
+        console.error(errorMsg);
+        this.updateResult(errorMsg, 'red');
+        throw new Error(errorMsg);
+      }
+      
+      // Show loading state
+      this.showLoading('Solicitando acceso a la cámara...');
+      console.log('All required elements found');
+      
+      // Ensure camera container is visible
+      this.cameraContainer.style.display = 'block';
+      console.log('Camera container displayed');
+      
+      // Reset any existing stream
+      if (this.stream) {
+        console.log('Stopping existing stream...');
+        this.stream.getTracks().forEach(track => {
+          console.log(`Stopping track: ${track.kind}`);
+          track.stop();
+        });
+        this.stream = null;
+      }
+      
+      // Set video source to null before requesting new stream
+      this.video.srcObject = null;
+      
+      // Log available media devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      console.log('Available media devices:', devices);
+      
+      // Request camera access with error handling
+      const constraints = {
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+      
+      console.log('Requesting media with constraints:', constraints);
+      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (!this.stream) {
+        throw new Error('No se pudo obtener acceso a la cámara');
+      }
+      
+      console.log('Media stream obtained:', this.stream);
+      
+      // Set up video element
+      this.video.srcObject = this.stream;
+      
+      // Wait for video to be ready
+      await new Promise((resolve, reject) => {
+        const onLoaded = () => {
+          this.video.removeEventListener('loadedmetadata', onLoaded);
+          this.video.play()
+            .then(resolve)
+            .catch(err => {
+              console.error('Error playing video:', err);
+              reject(new Error('No se pudo reproducir el video de la cámara'));
+            });
+        };
+        
+        this.video.addEventListener('loadedmetadata', onLoaded, { once: true });
+        
+        // Set a timeout in case the video never loads
+        setTimeout(() => {
+          reject(new Error('Tiempo de espera agotado al cargar el video'));
+        }, 5000);
+      });
+      
+      console.log('Video is playing');
+      
+      // Start recognition
+      if (this.recognitionInterval) {
+        clearInterval(this.recognitionInterval);
+      }
+      
+      this.recognitionInterval = setInterval(() => this.recognizePlate(), 2000);
+      this.isCameraOn = true;
+      
+      // Update UI
+      if (this.startButton) {
+        this.startButton.textContent = 'Detener Cámara';
+      }
+      
+      this.updateResult('Cámara activa. Escaneando...', 'black');
+      
+    } catch (error) {
+      console.error('Error in startCamera:', error);
+      
+      // Clean up on error
+      if (this.stream) {
+        this.stream.getTracks().forEach(track => track.stop());
+        this.stream = null;
+      }
+      
+      if (this.video) {
+        this.video.srcObject = null;
+      }
+      
+      // Handle specific error cases
+      let errorMessage = 'Error al iniciar la cámara';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Permiso de cámara denegado. Por favor, permite el acceso a la cámara.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = 'No se encontró ninguna cámara en el dispositivo.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = 'No se pudo acceder a la cámara. Puede que ya esté en uso por otra aplicación.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      this.updateResult(errorMessage, 'red');
+      
+      // Show help for permission issues
+      if (error.name === 'NotAllowedError') {
+        this.showCameraHelp();
+      }
+      
+      // Reset button state
+      if (this.startButton) {
+        this.startButton.textContent = 'Iniciar Cámara';
+      }
+      
+      this.isCameraOn = false;
+      throw error; // Re-throw to be caught by toggleCamera
+    } finally {
+      if (this.loading) {
+        this.loading.style.display = 'none';
+      }
+    }
+    
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      
+      this.video.srcObject = this.stream;
+      this.video.onloadedmetadata = () => {
+        this.video.play().catch(error => {
+          console.error('Error playing video:', error);
+          throw new Error('No se pudo reproducir el video');
+        });
+      };
+      
+      if (this.cameraContainer) this.cameraContainer.style.display = 'block';
+      if (this.startButton) this.startButton.textContent = 'Detener Cámara';
+      
+      this.recognitionInterval = setInterval(() => this.recognizePlate(), 2000);
+      this.isCameraOn = true;
+      
+      this.updateResult('Cámara activa. Escaneando...', 'black');
+      
+    } catch (error) {
+      console.error('Camera error:', error);
+      this.handleCameraError(error);
+      throw error;
+    } finally {
+      if (this.loading) this.loading.style.display = 'none';
+    }
+  }
+  
+  async stopCamera() {
+    console.log('Stopping camera...');
+    
+    if (this.recognitionInterval) {
+      clearInterval(this.recognitionInterval);
+      this.recognitionInterval = null;
+    }
+    
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    
+    if (this.video) {
+      this.video.srcObject = null;
+    }
+    
+    if (this.startButton) this.startButton.textContent = 'Iniciar Cámara';
+    this.updateResult('Cámara detenida', 'black');
+    this.isCameraOn = false;
+  }
+  
+  async recognizePlate() {
+    if (!this.video || this.video.readyState < 2) return;
+    
+    try {
+      const plate = await recognizePlate(this.video);
+      if (plate) {
+        console.log('Recognized plate:', plate);
+        this.updateResult(`Placa detectada: ${plate}`, 'green');
+      }
+    } catch (error) {
+      console.error('Error recognizing plate:', error);
+      this.updateResult('Error al reconocer la placa', 'red');
+    }
+  }
+  
+  // Helper methods
+  showLoading(message) {
+    if (this.loading) this.loading.style.display = 'block';
+    if (this.result) {
+      this.result.textContent = message;
+      this.result.style.color = 'black';
+    }
+  }
+  
+  updateResult(message, color = 'black') {
+    if (!this.result) return;
+    this.result.textContent = message;
+    this.result.style.color = color;
+  }
+  
+  handleCameraError(error) {
+    console.error('Camera error:', error);
+    let message = 'Error al acceder a la cámara';
+    let showHelp = false;
+    
+    if (error.name === 'NotAllowedError') {
+      message = 'Permiso de cámara denegado. Por favor, permite el acceso a la cámara.';
+      showHelp = true;
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      message = 'No se encontró ninguna cámara en el dispositivo.';
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      message = 'No se pudo acceder a la cámara. Puede que ya esté en uso por otra aplicación.';
+    } else {
+      message = `Error: ${error.message || 'Error desconocido al acceder a la cámara'}`;
+    }
+    
+    this.updateResult(message, 'red');
+    if (showHelp) this.showCameraHelp();
+    
+    if (this.startButton) this.startButton.textContent = 'Reintentar';
+  }
+  
+  showCameraHelp() {
+    if (!this.result) return;
+    
     const helpText = document.createElement('div');
+    helpText.style.marginTop = '20px';
+    helpText.style.padding = '15px';
+    helpText.style.border = '1px solid #ddd';
+    helpText.style.borderRadius = '8px';
+    helpText.style.backgroundColor = '#f9f9f9';
+    
     helpText.innerHTML = `
       <h3>Cómo habilitar la cámara:</h3>
       <ol>
@@ -18,258 +418,20 @@ document.addEventListener('DOMContentLoaded', () => {
         <li>Cambia el permiso a "Permitir"</li>
         <li>Recarga la página</li>
       </ol>
-      <p>Si el problema persiste, verifica que no haya otras aplicaciones usando la cámara.</p>
-      <button onclick="this.parentElement.remove()" style="margin-top: 10px;">Cerrar</button>
+      <button style="margin-top: 10px; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Cerrar</button>
     `;
-    helpText.style.marginTop = '20px';
-    helpText.style.padding = '15px';
-    helpText.style.border = '1px solid #ddd';
-    helpText.style.borderRadius = '8px';
-    helpText.style.backgroundColor = '#f9f9f9';
+    
+    // Add close button functionality
+    const closeButton = helpText.querySelector('button');
+    closeButton.onclick = () => helpText.remove();
     
     // Remove any existing help text
-    const existingHelp = document.querySelector('.camera-help-text');
+    const existingHelp = this.result.querySelector('.camera-help-text');
     if (existingHelp) existingHelp.remove();
     
     helpText.className = 'camera-help-text';
-    document.getElementById('result').appendChild(helpText);
+    this.result.appendChild(helpText);
   }
+}
 
-  async function startCamera() {
-    // Show loading state
-    const loading = document.querySelector('.loading');
-    const result = document.getElementById('result');
-    const video = document.getElementById('camera');
-    const cameraContainer = document.getElementById('cameraContainer');
-    const startButton = document.getElementById('startButton');
-    
-    loading.style.display = 'block';
-    result.textContent = 'Solicitando acceso a la cámara...';
-    result.style.color = 'black';
-    
-    // Request camera access
-    const constraints = {
-      video: { 
-        facingMode: 'environment',
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    };
-    
-    try {
-      // Try to get media with error handling for different browsers
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (err) {
-        console.error('Camera access error:', err);
-        
-        // Create a more helpful error message with instructions
-        let errorMessage = 'No se pudo acceder a la cámara. ';
-        let showHelpButton = false;
-        
-        if (err.name === 'NotAllowedError') {
-          errorMessage = 'Permiso de cámara denegado. ';
-          showHelpButton = true;
-        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-          errorMessage += 'No se encontró ninguna cámara en el dispositivo.';
-        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-          errorMessage += 'No se pudo acceder a la cámara. Puede que ya esté en uso por otra aplicación.';
-        } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
-          // Try with less constraints
-          delete constraints.video.width;
-          delete constraints.video.height;
-          try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-            // If we get here, the fallback worked
-            loading.style.display = 'none';
-            
-            // Set up video stream
-            video.srcObject = stream;
-            cameraContainer.style.display = 'block';
-            startButton.textContent = 'Detener Cámara';
-            
-            // Wait for video to be ready
-            await new Promise((resolve) => {
-              video.onloadedmetadata = () => {
-                video.play();
-                resolve();
-              };
-            });
-            
-            // Start recognition after a short delay
-            if (recognitionInterval) clearInterval(recognitionInterval);
-            recognitionInterval = setInterval(recognizePlate, 2000);
-            
-            return stream;
-          } catch (nestedErr) {
-            errorMessage += 'No se pudo acceder a la cámara con las configuraciones disponibles.';
-          }
-        } else {
-          errorMessage += 'Error desconocido al acceder a la cámara.';
-        }
-        
-        throw { message: errorMessage, showHelpButton };
-      }
-      
-      // If we get here, we have a valid stream
-      loading.style.display = 'none';
-      video.srcObject = stream;
-      cameraContainer.style.display = 'block';
-      startButton.textContent = 'Detener Cámara';
-      
-      // Wait for video to be ready
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => {
-          video.play();
-          resolve();
-        };
-      });
-      
-      // Start recognition after a short delay
-      if (recognitionInterval) clearInterval(recognitionInterval);
-      recognitionInterval = setInterval(recognizePlate, 2000);
-      
-      return stream;
-      
-    } catch (error) {
-      console.error('Camera initialization error:', error);
-      
-      // Hide loading state
-      loading.style.display = 'none';
-      
-      // Show error message
-      result.innerHTML = error.message || 'Error desconocido al acceder a la cámara.';
-      result.style.color = 'var(--error)';
-      
-      // Add help button if needed
-      if (error.showHelpButton) {
-        const helpButton = document.createElement('button');
-        helpButton.textContent = '¿Cómo habilitar la cámara?';
-        helpButton.style.marginTop = '10px';
-        helpButton.style.padding = '8px 16px';
-        helpButton.style.fontSize = '0.9rem';
-        helpButton.style.backgroundColor = 'transparent';
-        helpButton.style.color = 'var(--primary)';
-        helpButton.style.border = '1px solid var(--primary)';
-        helpButton.onclick = showCameraHelp;
-        
-        // Clear previous help button if any
-        const oldHelpButton = document.querySelector('.camera-help-button');
-        if (oldHelpButton) oldHelpButton.remove();
-        
-        helpButton.className = 'camera-help-button';
-        result.appendChild(document.createElement('br'));
-        result.appendChild(helpButton);
-      }
-      
-      // Reset button state
-      startButton.textContent = 'Reintentar';
-      startButton.disabled = false;
-      
-      throw error;
-    }
-  }
-
-  async function stopCamera() {
-    if (video.srcObject) {
-      const tracks = video.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      video.srcObject = null;
-    }
-    if (recognitionInterval) {
-      clearInterval(recognitionInterval);
-      recognitionInterval = null;
-    }
-  }
-
-  async function recognizePlate() {
-    try {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        const plate = await recognizePlate(video);
-        result.textContent = `Placa detectada: ${plate || 'No reconocida'}`;
-        
-        if (plate && plate.length >= 4) { // Reduced minimum length for better testing
-          result.style.color = 'green';
-          // Uncomment and update this when you have the correct URL
-          // window.location.href = `https://tuapp.com/placa/${plate}`;
-        } else {
-          result.style.color = 'black';
-        }
-      }
-    } catch (error) {
-      console.error('Error recognizing plate:', error);
-      result.textContent = 'Error al procesar la imagen';
-      result.style.color = 'red';
-    }
-  }
-
-  // Initialize the app
-  async function init() {
-    try {
-      // Show loading state
-      const loading = document.querySelector('.loading');
-      loading.style.display = 'block';
-      result.textContent = 'Cargando modelo OCR...';
-      result.style.color = 'black';
-      
-      // Load the OCR model
-      await loadOCRModel();
-      
-      // Hide loading state
-      loading.style.display = 'none';
-      result.textContent = 'Listo para escanear';
-      
-      // Set up camera toggle
-      startButton.addEventListener('click', toggleCamera);
-      
-    } catch (error) {
-      console.error('Error initializing app:', error);
-      const loading = document.querySelector('.loading');
-      loading.style.display = 'none';
-      
-      result.textContent = 'Error al cargar la aplicación: ' + (error.message || 'Error desconocido');
-      result.style.color = 'var(--error)';
-      
-      // Allow retry
-      startButton.textContent = 'Reintentar';
-      startButton.onclick = init;
-      startButton.disabled = false;
-    }
-  }
-  
-  // Toggle camera on/off
-  async function toggleCamera() {
-    const loading = document.querySelector('.loading');
-    try {
-      if (video.srcObject) {
-        // Stop the camera
-        await stopCamera();
-        startButton.textContent = 'Iniciar Cámara';
-        result.textContent = 'Cámara detenida';
-        result.style.color = 'black';
-      } else {
-        // Start the camera
-        startButton.disabled = true;
-        result.textContent = 'Iniciando cámara...';
-        result.style.color = 'black';
-        
-        await startCamera();
-        result.textContent = 'Apunte la cámara a una patente';
-        result.style.color = 'black';
-      }
-    } catch (error) {
-      console.error('Error toggling camera:', error);
-      result.textContent = 'Error: ' + (error.message || 'No se pudo acceder a la cámara');
-      result.style.color = 'var(--error)';
-      startButton.textContent = 'Reintentar';
-    } finally {
-      loading.style.display = 'none';
-      startButton.disabled = false;
-    }
-  }
-
-  // Start the app
-  init();
-});
+// The class is already exported above

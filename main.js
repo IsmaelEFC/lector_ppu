@@ -442,4 +442,4 @@ class LicensePlateReader {
 }
 
 // Initialize the app
-const app = new LicensePlateReader();
+export default LicensePlateReader;

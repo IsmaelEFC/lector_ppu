@@ -20,45 +20,37 @@ export async function loadOCRModel() {
   try {
     console.log('Loading OCR model...');
     
-    // Configure ONNX Runtime
+    // Configurar ONNX Runtime
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-    ort.env.wasm.numThreads = 1; // Reduce memory usage
+    ort.env.wasm.numThreads = 1;
     
-    // Try to load the model from the local model directory first
+    // Intentar cargar el modelo local primero
     let modelPath = './model/license_plates_ocr_model.onnx';
     
-    // Fallback to a CDN if local model is not available
     try {
       const response = await fetch(modelPath);
       if (!response.ok) throw new Error('Local model not found');
     } catch (error) {
       console.warn('Local model not found, using fallback model');
-      modelPath = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/test/data/squeezenet1.onnx'; // Modelo de ejemplo
+      modelPath = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/test/data/squeezenet.onnx';
     }
     
-    // Initialize the model with WebAssembly backend
+    // Cargar el modelo
     session = await ort.InferenceSession.create(modelPath, {
       executionProviders: ['wasm'],
-      graphOptimizationLevel: 'all',
-      executionMode: 'parallel',
-      enableCpuMemArena: true
+      graphOptimizationLevel: 'all'
     });
     
-    // Log model input/output information (compatible con todas las versiones)
+    // Log de información del modelo (forma compatible)
     console.log('Model loaded successfully');
     console.log('Input names:', session.inputNames);
     console.log('Output names:', session.outputNames);
     
-    // Obtener información de inputs de forma compatible
     if (session.inputNames && session.inputNames.length > 0) {
       console.log('First input name:', session.inputNames[0]);
-      if (session.inputValues) {
-        console.log('First input shape:', session.inputValues.get(session.inputNames[0]).dims);
-      }
     }
     
     modelLoaded = true;
-    console.log('OCR model loaded successfully');
     return true;
     
   } catch (error) {

@@ -363,13 +363,21 @@ export default class LicensePlateReader {
   }
   
   async recognizePlate() {
-    if (!this.video || this.video.readyState < 2) return;
+    if (!this.video || this.video.readyState < 2) {
+      console.log('Video not ready for recognition, readyState:', this.video ? this.video.readyState : 'no video');
+      return;
+    }
     
     try {
+      console.log('Attempting to recognize license plate...');
       const plate = await recognizePlate(this.video);
-      if (plate) {
-        console.log('Recognized plate:', plate);
-        this.updateResult(`Placa detectada: ${plate}`, 'green');
+      
+      if (plate && plate.trim() !== '') {
+        console.log('License plate recognized:', plate);
+        this.updateResult(`Patente: ${plate}`, 'green');
+      } else {
+        console.log('No license plate detected or recognized');
+        this.updateResult('Escaneando...', 'black');
       }
     } catch (error) {
       console.error('Error recognizing plate:', error);

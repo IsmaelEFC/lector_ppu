@@ -1,5 +1,5 @@
 import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/esm/ort.min.js';
-import { CHARSET } from './charset.js';
+import { CHARSET, cleanPlateText, PLATE_FORMATS } from './charset.js';
 
 let session;
 let modelLoaded = false;
@@ -102,12 +102,20 @@ function preprocessImage(video) {
 
 function decodeOutput(output) {
   try {
+    console.log('Raw model output:', {
+      data: output.data,
+      dims: output.dims,
+      type: output.type
+    });
+    
     const scores = output.data;
-    const [seqLength, , numClasses] = output.dims;
+    const [seqLength, batchSize, numClasses] = output.dims;
     let result = '', prev = -1;
     
-    // Confidence threshold (adjust as needed)
-    const confidenceThreshold = 0.5;
+    // Lower confidence threshold to detect more potential characters
+    const confidenceThreshold = 0.1; // Reduced from 0.5 to be more permissive
+    
+    console.log(`Decoding output: seqLength=${seqLength}, numClasses=${numClasses}`);
     
     for (let t = 0; t < seqLength; t++) {
       let maxScore = -Infinity, maxIndex = -1;
@@ -121,20 +129,47 @@ function decodeOutput(output) {
         }
       }
       
+      // Log each character's score for debugging
+      console.log(`Timestep ${t}: maxIndex=${maxIndex}, char=${CHARSET[maxIndex] || '?'}, score=${maxScore.toFixed(4)}`);
+      
       // Only add the character if it's above the confidence threshold
       // and it's not the same as the previous character (removes duplicates)
-      if (maxIndex !== prev && maxIndex < CHARSET.length && maxScore > confidenceThreshold) {
-        result += CHARSET[maxIndex];
+      if (maxIndex !== -1 && maxIndex < CHARSET.length) {
+        if (maxScore > confidenceThreshold) {
+          result += CHARSET[maxIndex];
+          console.log(`Added character: ${CHARSET[maxIndex]} (score: ${maxScore.toFixed(4)})`);
+        }
+        prev = maxIndex;
       }
-      prev = maxIndex;
     }
     
-    // Basic plate format validation (adjust based on your country's format)
-    // For example, in some countries: 3 letters + 3 numbers (ABC123)
-    const plateRegex = /^[A-Z0-9]{4,8}$/;
+    console.log('Raw recognized text before filtering:', result);
     
-    // Only return the result if it matches the expected format
-    return plateRegex.test(result) ? result : '';
+    // Clean the recognized text using our utility function
+    const cleanedText = cleanPlateText(result);
+    console.log('Cleaned plate text:', cleanedText);
+    
+    // Check against common plate formats
+    const formatMatch = Object.entries(PLATE_FORMATS).find(([country, regex]) => {
+      const match = regex.test(cleanedText);
+      if (match) console.log(`Matched ${country} plate format`);
+      return match;
+    });
+    
+    // If we have a match, return the cleaned text
+    if (formatMatch) {
+      console.log(`Valid ${formatMatch[0]} plate detected:`, cleanedText);
+      return cleanedText;
+    }
+    
+    // Fallback: Check if we have at least 3 alphanumeric characters
+    if (cleanedText.length >= 3) {
+      console.log('Partial plate detected (3+ chars):', cleanedText);
+      return cleanedText;
+    }
+    
+    console.log('No valid plate detected');
+    return '';
     
   } catch (error) {
     console.error('Error decoding output:', error);

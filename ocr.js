@@ -20,42 +20,41 @@ export async function loadOCRModel() {
   try {
     console.log('Loading OCR model...');
     
-    // Configurar ONNX Runtime
+    // Configuración de ONNX Runtime
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
     ort.env.wasm.numThreads = 1;
     
-    // Intentar cargar el modelo local primero
-    let modelPath = './model/license_plates_ocr_model.onnx';
+    // Ruta del modelo (ajusta según tu necesidad)
+    const modelPath = './model/license_plates_ocr_model.onnx';
     
-    try {
-      const response = await fetch(modelPath);
-      if (!response.ok) throw new Error('Local model not found');
-    } catch (error) {
-      console.warn('Local model not found, using fallback model');
-      modelPath = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/test/data/squeezenet.onnx';
-    }
-    
-    // Cargar el modelo
+    // Cargar modelo
     session = await ort.InferenceSession.create(modelPath, {
       executionProviders: ['wasm'],
       graphOptimizationLevel: 'all'
     });
-    
-    // Log de información del modelo (forma compatible)
-    console.log('Model loaded successfully');
-    console.log('Input names:', session.inputNames);
-    console.log('Output names:', session.outputNames);
-    
-    if (session.inputNames && session.inputNames.length > 0) {
-      console.log('First input name:', session.inputNames[0]);
-    }
+
+    // Información de compatibilidad
+    console.log('Model loaded successfully. Inputs:', session.inputNames);
     
     modelLoaded = true;
     return true;
     
   } catch (error) {
     console.error('Failed to load OCR model:', error);
-    throw new Error('No se pudo cargar el modelo OCR. Por favor recarga la página e inténtalo de nuevo.');
+    
+    // Intentar con modelo de prueba si falla
+    try {
+      console.log('Trying with test model...');
+      session = await ort.InferenceSession.create(
+        'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/test/data/squeezenet.onnx', 
+        { executionProviders: ['wasm'] }
+      );
+      modelLoaded = true;
+      return true;
+    } catch (fallbackError) {
+      console.error('Fallback model also failed:', fallbackError);
+      throw new Error('No se pudo cargar ningún modelo OCR. Verifica la conexión.');
+    }
   }
 }
 

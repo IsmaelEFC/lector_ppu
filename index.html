@@ -9,7 +9,7 @@
   <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
   
   <!-- Preload WASM files for better performance -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm" as="fetch" type="application/wasm" crossorigin="anonymous" importance="high">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm" as="fetch" type="application/wasm" crossorigin>
   
   <title>Lector de Patentes</title>
   <link rel="manifest" href="manifest.json">
@@ -196,27 +196,26 @@
         // Registrar Service Worker
         if ('serviceWorker' in navigator) {
           try {
-            await navigator.serviceWorker.register('./service-worker.js');
-            console.log('ServiceWorker registered');
-          } catch (error) {
-            console.error('ServiceWorker registration failed:', error);
+            const registration = await navigator.serviceWorker.register('./service-worker.js');
+            console.log('ServiceWorker registered:', registration.scope);
+          } catch (swError) {
+            console.warn('ServiceWorker registration failed:', swError);
           }
         }
         
-        // Importar el módulo
-        const module = await import('./main.js');
-        const LicensePlateReader = module.default;
+        // Importar el módulo principal
+        const { default: LicensePlateReader } = await import('./main.js');
         
         // Inicializar la aplicación
         window.app = new LicensePlateReader();
-        console.log('Application initialized');
+        console.log('Application initialized successfully');
         
       } catch (error) {
-        console.error('Error initializing application:', error);
-        const result = document.getElementById('result');
-        if (result) {
-          result.textContent = 'Error al cargar la aplicación: ' + error.message;
-          result.style.color = 'red';
+        console.error('Initialization error:', error);
+        const resultEl = document.getElementById('result');
+        if (resultEl) {
+          resultEl.textContent = `Error: ${error.message}`;
+          resultEl.style.color = 'red';
         }
       }
     });

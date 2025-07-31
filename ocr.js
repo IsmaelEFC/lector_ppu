@@ -67,14 +67,16 @@ function preprocessImage(video) {
       offsetY = (drawHeight - height) / -2; // Center the crop
     }
     
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     
     // Draw the video frame to canvas
     ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
     
     // Apply image processing
     const imageData = ctx.getImageData(0, 0, width, height);
-    const input = new Uint8Array(width * height); // Use Uint8Array instead of Float32Array
+    
+    // Create a new Uint8Array for the grayscale image
+    const input = new Uint8Array(width * height);
     
     // Convert to grayscale and enhance contrast
     for (let i = 0; i < width * height; i++) {
@@ -91,8 +93,20 @@ function preprocessImage(video) {
       input[i] = gray;
     }
     
-    // Return as uint8 tensor with shape [1, 1, height, width]
-    return new ort.Tensor('uint8', input, [1, 1, height, width]);
+    // Debug: Check tensor values
+    console.log('Input tensor values (first 10):', Array.from(input).slice(0, 10));
+    console.log('Input tensor type: uint8, shape:', [1, 1, height, width]);
+    
+    // Create and return the tensor
+    const tensor = new ort.Tensor('uint8', input, [1, 1, height, width]);
+    
+    // Verify tensor type
+    if (tensor.type !== 'uint8') {
+      console.warn(`Warning: Tensor type is ${tensor.type}, expected uint8. Converting...`);
+      return new ort.Tensor('uint8', input, [1, 1, height, width]);
+    }
+    
+    return tensor;
     
   } catch (error) {
     console.error('Error preprocessing image:', error);
@@ -202,19 +216,62 @@ export async function recognizePlate(video) {
       return '';
     }
     
-    console.log('Running OCR model...');
-    const output = await session.run({ input: inputTensor });
+    // Log tensor details before running the model
+    console.log('Input tensor details:', {
+      type: inputTensor.type,
+      dims: inputTensor.dims,
+      dataType: inputTensor.data.constructor.name,
+      dataLength: inputTensor.data.length,
+      first10Values: Array.from(inputTensor.data).slice(0, 10)
+    });
     
-    if (!output || !output.output) {
-      console.error('No output from OCR model');
+    console.log('Running OCR model...');
+    try {
+      const output = await session.run({ input: inputTensor });
+      
+      if (!output || !output.output) {
+        console.error('No output from OCR model');
+        return '';
+      }
+      
+      console.log('Model output received, decoding...');
+      console.log('Output tensor details:', {
+        type: output.output.type,
+        dims: output.output.dims,
+        dataType: output.output.data.constructor.name,
+        dataLength: output.output.data.length
+      });
+      
+      const plateText = decodeOutput(output.output);
+      console.log('Decoded plate text:', plateText);
+      return plateText || '';
+      
+    } catch (modelError) {
+      console.error('Error during model execution:', {
+        name: modelError.name,
+        message: modelError.message,
+        stack: modelError.stack
+      });
+      
+      // Try to force uint8 type if there's a type mismatch
+      if (modelError.message.includes('Unexpected input data type') && 
+          inputTensor.type !== 'uint8') {
+        console.log('Attempting to convert tensor to uint8...');
+        const uint8Data = new Uint8Array(inputTensor.data);
+        const fixedTensor = new ort.Tensor('uint8', uint8Data, inputTensor.dims);
+        
+        try {
+          const output = await session.run({ input: fixedTensor });
+          if (output?.output) {
+            return decodeOutput(output.output) || '';
+          }
+        } catch (retryError) {
+          console.error('Retry with uint8 tensor failed:', retryError);
+        }
+      }
+      
       return '';
     }
-    
-    console.log('Decoding output...');
-    const plateText = decodeOutput(output.output);
-    
-    console.log('Recognized plate:', plateText);
-    return plateText || '';
     
   } catch (error) {
     console.error('Error in recognizePlate:', {

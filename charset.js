@@ -10,10 +10,12 @@ export const PLATE_FORMATS = {
   'CL': /^[A-Z]{2}[0-9]{2}[A-Z0-9]{2}$/,  // Chilean format: AA 12 34
   'AR': /^[A-Z]{3} ?[0-9]{3}$/,           // Argentine format: ABC 123
   'US': /^[A-Z0-9]{1,8}$/,                 // US format (varies by state)
-  'EU': /^[A-Z0-9- ]{1,12}$/              // Generic European format
+  'EU': /^[A-Z0-9- ]{1,12}$/,              // Generic European format
+  'MX': /^[A-Z]{3}-?[0-9]{3}-?[0-9]{2}$/,  // Mexican format
+  'BR': /^[A-Z]{3}-?[0-9][A-Z0-9][0-9]{2}$/ // Brazilian format
 };
 
-// Function to clean and validate a recognized plate
+// Enhanced plate cleaning function
 export function cleanPlateText(text) {
   if (!text) return '';
   
@@ -24,5 +26,23 @@ export function cleanPlateText(text) {
     .join('');
   
   // Remove any remaining spaces or special characters
-  return cleaned.replace(/[^A-Z0-9]/g, '');
+  cleaned = cleaned.replace(/[^A-Z0-9]/g, '');
+  
+  // Additional formatting based on detected patterns
+  if (/^[A-Z]{2}\d{4}$/.test(cleaned)) {
+    // Format like AA1234
+    return `${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+  } else if (/^[A-Z]{3}\d{3}$/.test(cleaned)) {
+    // Format like ABC123
+    return `${cleaned.substring(0, 3)} ${cleaned.substring(3)}`;
+  }
+  
+  return cleaned;
+}
+
+// Function to validate plate format
+export function validatePlateFormat(plate, countryCode = 'CL') {
+  if (!plate) return false;
+  const format = PLATE_FORMATS[countryCode] || PLATE_FORMATS['CL'];
+  return format.test(plate);
 }

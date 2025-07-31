@@ -1,8 +1,18 @@
 import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/esm/ort.min.js';
-import { CHARSET, cleanPlateText, PLATE_FORMATS } from './charset.js';
+import { CHARSET, cleanPlateText, PLATE_FORMATS, validatePlateFormat } from './charset.js';
 
 let session;
 let modelLoaded = false;
+let config = {
+  recognitionInterval: 2000,
+  confidenceThreshold: 0.7,
+  countryCode: 'CL'
+};
+
+export function setOCRConfig(newConfig) {
+  config = { ...config, ...newConfig };
+  console.log('OCR config updated:', config);
+}
 
 export async function loadOCRModel() {
   if (modelLoaded) return true;
@@ -34,6 +44,43 @@ export async function loadOCRModel() {
       enableCpuMemArena: true
     });
     
+    // Log model input/output information
+    console.log('Model input names:', session.inputNames);
+    console.log('Model output names:', session.outputNames);
+    
+    // Get input details (using the new API)
+    const inputName = session.inputNames[0];
+    const input = session.inputs.get ? session.inputs.get(inputName) : null;
+    
+    if (input) {
+      console.log('Model input details:', {
+        name: inputName,
+        shape: input.dims,
+        type: input.type,
+        size: input.size
+      });
+    } else {
+      // Fallback for newer ONNX Runtime versions
+      console.log('Model input name:', inputName);
+      console.log('Note: Could not get detailed input info - using default shape [1,1,32,100]');
+    }
+    
+    // Get output details (using the new API)
+    const outputName = session.outputNames[0];
+    const output = session.outputs.get ? session.outputs.get(outputName) : null;
+    
+    if (output) {
+      console.log('Model output details:', {
+        name: outputName,
+        shape: output.dims,
+        type: output.type,
+        size: output.size
+      });
+    } else {
+      console.log('Model output name:', outputName);
+      console.log('Note: Could not get detailed output info');
+    }
+    
     modelLoaded = true;
     console.log('OCR model loaded successfully');
     return true;
@@ -46,67 +93,62 @@ export async function loadOCRModel() {
 
 function preprocessImage(video) {
   try {
+    // Target dimensions (adjust based on model requirements)
     const width = 100, height = 32;
+    const channels = 1; // Grayscale
+    
+    console.log(`Preprocessing image to ${width}x${height} grayscale`);
+    
+    // Create canvas for processing
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     
-    // Calculate aspect ratio to maintain proportions
-    const aspectRatio = video.videoWidth / video.videoHeight;
-    let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
-    
-    if (aspectRatio > width / height) {
-      // Video is wider than target
-      drawHeight = height;
-      drawWidth = drawHeight * aspectRatio;
-      offsetX = (drawWidth - width) / -2; // Center the crop
-    } else {
-      // Video is taller than target
-      drawWidth = width;
-      drawHeight = drawWidth / aspectRatio;
-      offsetY = (drawHeight - height) / -2; // Center the crop
-    }
-    
+    // Get 2D context with willReadFrequently for better performance
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     
     // Draw the video frame to canvas
-    ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
+    ctx.drawImage(video, 0, 0, width, height);
     
-    // Apply image processing
+    // Apply contrast enhancement
+    ctx.filter = 'contrast(1.5)';
+    ctx.drawImage(canvas, 0, 0);
+    
+    // Get image data
     const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
     
-    // Create a new Uint8Array for the grayscale image
-    const input = new Uint8Array(width * height);
+    // Create a new Float32Array for the grayscale image
+    const input = new Float32Array(width * height * channels);
     
-    // Convert to grayscale and enhance contrast
-    for (let i = 0; i < width * height; i++) {
-      const r = imageData.data[i * 4];
-      const g = imageData.data[i * 4 + 1];
-      const b = imageData.data[i * 4 + 2];
+    // Convert to grayscale and normalize to [0, 1]
+    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+      // Convert to grayscale using luminosity method
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
       
-      // Convert to grayscale using luminosity method (values 0-255)
+      // Grayscale conversion (values 0-255)
       let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
       
-      // Apply contrast stretching (keep as uint8)
-      gray = Math.min(255, Math.max(0, (gray - 51) * 1.5)); // 51 is ~0.2 * 255
+      // Apply contrast stretching and normalize to [0, 1]
+      gray = Math.min(255, Math.max(0, (gray - 51) * 1.5)) / 255; // 51 is ~0.2 * 255
       
-      input[i] = gray;
+      input[j] = gray;
     }
     
-    // Debug: Check tensor values
-    console.log('Input tensor values (first 10):', Array.from(input).slice(0, 10));
-    console.log('Input tensor type: uint8, shape:', [1, 1, height, width]);
+    // Log tensor details
+    console.log('Preprocessed tensor:', {
+      type: 'float32',
+      shape: [1, channels, height, width],
+      min: Math.min(...input),
+      max: Math.max(...input),
+      mean: input.reduce((a, b) => a + b, 0) / input.length,
+      first10: Array.from(input).slice(0, 10)
+    });
     
-    // Create and return the tensor
-    const tensor = new ort.Tensor('uint8', input, [1, 1, height, width]);
-    
-    // Verify tensor type
-    if (tensor.type !== 'uint8') {
-      console.warn(`Warning: Tensor type is ${tensor.type}, expected uint8. Converting...`);
-      return new ort.Tensor('uint8', input, [1, 1, height, width]);
-    }
-    
-    return tensor;
+    // Create and return the tensor with shape [batch, channels, height, width]
+    return new ort.Tensor('float32', input, [1, channels, height, width]);
     
   } catch (error) {
     console.error('Error preprocessing image:', error);
@@ -125,9 +167,6 @@ function decodeOutput(output) {
     const scores = output.data;
     const [seqLength, batchSize, numClasses] = output.dims;
     let result = '', prev = -1;
-    
-    // Lower confidence threshold to detect more potential characters
-    const confidenceThreshold = 0.1; // Reduced from 0.5 to be more permissive
     
     console.log(`Decoding output: seqLength=${seqLength}, numClasses=${numClasses}`);
     
@@ -149,7 +188,7 @@ function decodeOutput(output) {
       // Only add the character if it's above the confidence threshold
       // and it's not the same as the previous character (removes duplicates)
       if (maxIndex !== -1 && maxIndex < CHARSET.length) {
-        if (maxScore > confidenceThreshold) {
+        if (maxScore > config.confidenceThreshold) {
           result += CHARSET[maxIndex];
           console.log(`Added character: ${CHARSET[maxIndex]} (score: ${maxScore.toFixed(4)})`);
         }
@@ -163,16 +202,11 @@ function decodeOutput(output) {
     const cleanedText = cleanPlateText(result);
     console.log('Cleaned plate text:', cleanedText);
     
-    // Check against common plate formats
-    const formatMatch = Object.entries(PLATE_FORMATS).find(([country, regex]) => {
-      const match = regex.test(cleanedText);
-      if (match) console.log(`Matched ${country} plate format`);
-      return match;
-    });
+    // Validate against selected country format
+    const isValid = validatePlateFormat(cleanedText, config.countryCode);
     
-    // If we have a match, return the cleaned text
-    if (formatMatch) {
-      console.log(`Valid ${formatMatch[0]} plate detected:`, cleanedText);
+    if (isValid) {
+      console.log(`Valid ${config.countryCode} plate detected:`, cleanedText);
       return cleanedText;
     }
     
@@ -226,23 +260,49 @@ export async function recognizePlate(video) {
     });
     
     console.log('Running OCR model...');
+    
     try {
-      const output = await session.run({ input: inputTensor });
+      // Get the expected input name from the session
+      const inputName = session.inputNames[0];
       
-      if (!output || !output.output) {
+      // Create input feed with the correct input name
+      const inputFeed = {};
+      inputFeed[inputName] = inputTensor;
+      
+      console.log('Running model with input feed:', {
+        inputName,
+        inputShape: inputTensor.dims,
+        inputType: inputTensor.type
+      });
+      
+      // Run the model
+      const output = await session.run(inputFeed);
+      
+      if (!output) {
         console.error('No output from OCR model');
         return '';
       }
       
-      console.log('Model output received, decoding...');
-      console.log('Output tensor details:', {
-        type: output.output.type,
-        dims: output.output.dims,
-        dataType: output.output.data.constructor.name,
-        dataLength: output.output.data.length
+      // Get the first output (assuming single output model)
+      const outputName = session.outputNames[0];
+      const outputTensor = output[outputName];
+      
+      if (!outputTensor) {
+        console.error('No output tensor found in model output');
+        return '';
+      }
+      
+      console.log('Model output received:', {
+        outputName,
+        type: outputTensor.type,
+        dims: outputTensor.dims,
+        dataType: outputTensor.data.constructor.name,
+        dataLength: outputTensor.data.length,
+        first10: Array.from(outputTensor.data).slice(0, 10)
       });
       
-      const plateText = decodeOutput(output.output);
+      // Decode the output
+      const plateText = decodeOutput(outputTensor);
       console.log('Decoded plate text:', plateText);
       return plateText || '';
       
@@ -253,12 +313,12 @@ export async function recognizePlate(video) {
         stack: modelError.stack
       });
       
-      // Try to force uint8 type if there's a type mismatch
+      // Try to force float32 type if there's a type mismatch
       if (modelError.message.includes('Unexpected input data type') && 
-          inputTensor.type !== 'uint8') {
-        console.log('Attempting to convert tensor to uint8...');
-        const uint8Data = new Uint8Array(inputTensor.data);
-        const fixedTensor = new ort.Tensor('uint8', uint8Data, inputTensor.dims);
+          inputTensor.type !== 'float32') {
+        console.log('Attempting to convert tensor to float32...');
+        const float32Data = new Float32Array(inputTensor.data);
+        const fixedTensor = new ort.Tensor('float32', float32Data, inputTensor.dims);
         
         try {
           const output = await session.run({ input: fixedTensor });
@@ -266,7 +326,7 @@ export async function recognizePlate(video) {
             return decodeOutput(output.output) || '';
           }
         } catch (retryError) {
-          console.error('Retry with uint8 tensor failed:', retryError);
+          console.error('Retry with float32 tensor failed:', retryError);
         }
       }
       

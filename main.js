@@ -138,7 +138,20 @@ export default class LicensePlateReader {
   async startCamera() {
     console.log('Starting camera initialization...');
     
+    // Show camera status indicator
+    const cameraStatus = document.getElementById('cameraStatus');
+    if (cameraStatus) {
+      cameraStatus.style.display = 'block';
+    }
+    
     try {
+      // Ensure we have all required elements
+      if (!this.video) {
+        this.video = document.getElementById('video');
+        if (!this.video) {
+          throw new Error('Video element not found in the DOM');
+        }
+      }
       // Ensure all required DOM elements are available
       this.video = document.getElementById('video');
       this.result = document.getElementById('result');
@@ -206,26 +219,52 @@ export default class LicensePlateReader {
       console.log('Media stream obtained:', this.stream);
       
       // Set up video element
+      console.log('Setting video source to stream');
       this.video.srcObject = this.stream;
       
+      // Add event listeners for debugging
+      this.video.onloadedmetadata = () => {
+        console.log('Video metadata loaded');
+        console.log('Video dimensions:', this.video.videoWidth, 'x', this.video.videoHeight);
+      };
+      
+      this.video.onplay = () => {
+        console.log('Video started playing');
+      };
+      
+      this.video.onerror = (error) => {
+        console.error('Video error:', error);
+      };
+      
       // Wait for video to be ready
+      console.log('Waiting for video to be ready...');
       await new Promise((resolve, reject) => {
         const onLoaded = () => {
-          this.video.removeEventListener('loadedmetadata', onLoaded);
+          console.log('Video metadata loaded in promise');
           this.video.play()
-            .then(resolve)
+            .then(() => {
+              console.log('Video play started successfully');
+              resolve();
+            })
             .catch(err => {
               console.error('Error playing video:', err);
-              reject(new Error('No se pudo reproducir el video de la cámara'));
+              reject(new Error('No se pudo reproducir el video de la cámara: ' + err.message));
             });
         };
         
-        this.video.addEventListener('loadedmetadata', onLoaded, { once: true });
+        if (this.video.readyState >= 1) { // HAVE_CURRENT_DATA
+          console.log('Video already has data, playing directly');
+          onLoaded();
+        } else {
+          console.log('Adding loadedmetadata event listener');
+          this.video.addEventListener('loadedmetadata', onLoaded, { once: true });
+        }
         
         // Set a timeout in case the video never loads
         setTimeout(() => {
+          console.error('Video loading timeout');
           reject(new Error('Tiempo de espera agotado al cargar el video'));
-        }, 5000);
+        }, 10000); // Increased timeout to 10 seconds
       });
       
       console.log('Video is playing');
@@ -250,8 +289,16 @@ export default class LicensePlateReader {
       
       // Clean up on error
       if (this.stream) {
-        this.stream.getTracks().forEach(track => track.stop());
+        this.stream.getTracks().forEach(track => {
+          console.log(`Stopping track: ${track.kind}`);
+          track.stop();
+        });
         this.stream = null;
+      }
+      
+      // Hide camera status on error
+      if (cameraStatus) {
+        cameraStatus.style.display = 'none';
       }
       
       if (this.video) {
@@ -291,39 +338,6 @@ export default class LicensePlateReader {
       }
     }
     
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      });
-      
-      this.video.srcObject = this.stream;
-      this.video.onloadedmetadata = () => {
-        this.video.play().catch(error => {
-          console.error('Error playing video:', error);
-          throw new Error('No se pudo reproducir el video');
-        });
-      };
-      
-      if (this.cameraContainer) this.cameraContainer.style.display = 'block';
-      if (this.startButton) this.startButton.textContent = 'Detener Cámara';
-      
-      this.recognitionInterval = setInterval(() => this.recognizePlate(), 2000);
-      this.isCameraOn = true;
-      
-      this.updateResult('Cámara activa. Escaneando...', 'black');
-      
-    } catch (error) {
-      console.error('Camera error:', error);
-      this.handleCameraError(error);
-      throw error;
-    } finally {
-      if (this.loading) this.loading.style.display = 'none';
-    }
   }
   
   async stopCamera() {

@@ -62,12 +62,29 @@
     #cameraContainer {
       display: none;
       margin: 20px 0;
+      width: 100%;
+      max-width: 100%;
+      position: relative;
+      background-color: #000;
+      border-radius: 8px;
+      overflow: hidden;
     }
     
     #video {
       width: 100%;
       max-width: 100%;
-      border-radius: 4px;
+      height: auto;
+      display: block;
+      background-color: #000;
+    }
+    
+    /* Ensure video takes full width on mobile */
+    @media (max-width: 768px) {
+      #cameraContainer {
+        margin: 15px -20px; /* Full width on mobile */
+        width: calc(100% + 40px);
+        border-radius: 0;
+      }
     }
     
     #result {
@@ -123,6 +140,9 @@
     
     <div id="cameraContainer">
       <video id="video" autoplay playsinline muted></video>
+      <div id="cameraStatus" style="display: none; position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px;">
+        Cámara activa
+      </div>
     </div>
     
     <p id="result"></p>

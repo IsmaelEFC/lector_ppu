@@ -69,27 +69,30 @@ function preprocessImage(video) {
     
     const ctx = canvas.getContext('2d');
     
-    // Apply some basic image processing
-    ctx.filter = 'contrast(1.2) brightness(1.1) grayscale(100%)';
+    // Draw the video frame to canvas
     ctx.drawImage(video, offsetX, offsetY, drawWidth, drawHeight);
     
-    // Convert to grayscale and normalize
+    // Apply image processing
     const imageData = ctx.getImageData(0, 0, width, height);
-    const input = new Float32Array(width * height);
+    const input = new Uint8Array(width * height); // Use Uint8Array instead of Float32Array
     
-    // Convert to grayscale and normalize to [0, 1]
-    for (let i = 0; i < input.length; i++) {
-      // Simple grayscale conversion (luminosity method)
+    // Convert to grayscale and enhance contrast
+    for (let i = 0; i < width * height; i++) {
       const r = imageData.data[i * 4];
       const g = imageData.data[i * 4 + 1];
       const b = imageData.data[i * 4 + 2];
-      const gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
       
-      // Apply contrast stretching
-      input[i] = Math.min(1.0, Math.max(0.0, (gray - 0.2) * 1.5));
+      // Convert to grayscale using luminosity method (values 0-255)
+      let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      
+      // Apply contrast stretching (keep as uint8)
+      gray = Math.min(255, Math.max(0, (gray - 51) * 1.5)); // 51 is ~0.2 * 255
+      
+      input[i] = gray;
     }
     
-    return new ort.Tensor('float32', input, [1, 1, height, width]);
+    // Return as uint8 tensor with shape [1, 1, height, width]
+    return new ort.Tensor('uint8', input, [1, 1, height, width]);
     
   } catch (error) {
     console.error('Error preprocessing image:', error);
@@ -146,20 +149,44 @@ export async function recognizePlate(video) {
   }
   
   try {
-    if (!video || video.readyState !== 4) { // 4 = HAVE_ENOUGH_DATA
-      console.warn('Video not ready');
+    if (!video) {
+      console.warn('Video element is null or undefined');
       return '';
     }
     
+    if (video.readyState !== 4) { // 4 = HAVE_ENOUGH_DATA
+      console.warn('Video not ready, readyState:', video.readyState);
+      return '';
+    }
+    
+    console.log('Preprocessing video frame...');
     const inputTensor = preprocessImage(video);
+    
+    if (!inputTensor || !inputTensor.data) {
+      console.error('Failed to create input tensor');
+      return '';
+    }
+    
+    console.log('Running OCR model...');
     const output = await session.run({ input: inputTensor });
+    
+    if (!output || !output.output) {
+      console.error('No output from OCR model');
+      return '';
+    }
+    
+    console.log('Decoding output...');
     const plateText = decodeOutput(output.output);
     
     console.log('Recognized plate:', plateText);
     return plateText || '';
     
   } catch (error) {
-    console.error('Error recognizing plate:', error);
+    console.error('Error in recognizePlate:', {
+      error: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return '';
   }
 }

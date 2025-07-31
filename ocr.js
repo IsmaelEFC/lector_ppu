@@ -33,7 +33,7 @@ export async function loadOCRModel() {
       if (!response.ok) throw new Error('Local model not found');
     } catch (error) {
       console.warn('Local model not found, using fallback model');
-      modelPath = 'https://your-cdn-url.com/path/to/license_plates_ocr_model.onnx';
+      modelPath = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/test/data/squeezenet1.onnx'; // Modelo de ejemplo
     }
     
     // Initialize the model with WebAssembly backend
@@ -44,41 +44,17 @@ export async function loadOCRModel() {
       enableCpuMemArena: true
     });
     
-    // Log model input/output information
-    console.log('Model input names:', session.inputNames);
-    console.log('Model output names:', session.outputNames);
+    // Log model input/output information (compatible con todas las versiones)
+    console.log('Model loaded successfully');
+    console.log('Input names:', session.inputNames);
+    console.log('Output names:', session.outputNames);
     
-    // Get input details (using the new API)
-    const inputName = session.inputNames[0];
-    const input = session.inputs.get ? session.inputs.get(inputName) : null;
-    
-    if (input) {
-      console.log('Model input details:', {
-        name: inputName,
-        shape: input.dims,
-        type: input.type,
-        size: input.size
-      });
-    } else {
-      // Fallback for newer ONNX Runtime versions
-      console.log('Model input name:', inputName);
-      console.log('Note: Could not get detailed input info - using default shape [1,1,32,100]');
-    }
-    
-    // Get output details (using the new API)
-    const outputName = session.outputNames[0];
-    const output = session.outputs.get ? session.outputs.get(outputName) : null;
-    
-    if (output) {
-      console.log('Model output details:', {
-        name: outputName,
-        shape: output.dims,
-        type: output.type,
-        size: output.size
-      });
-    } else {
-      console.log('Model output name:', outputName);
-      console.log('Note: Could not get detailed output info');
+    // Obtener información de inputs de forma compatible
+    if (session.inputNames && session.inputNames.length > 0) {
+      console.log('First input name:', session.inputNames[0]);
+      if (session.inputValues) {
+        console.log('First input shape:', session.inputValues.get(session.inputNames[0]).dims);
+      }
     }
     
     modelLoaded = true;

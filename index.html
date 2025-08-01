@@ -208,7 +208,7 @@
         }
         
         // Importar el módulo principal
-        const { default: LicensePlateReader } = await import('./main.js');
+        const LicensePlateReader = (await import('./main.js')).default;
         
         // Inicializar la aplicación
         window.app = new LicensePlateReader();

@@ -173,81 +173,164 @@ class LicensePlateReader {
   }
 
   async startCamera() {
-    console.log('Starting camera...');
-    this.showLoading('Solicitando acceso a la cámara...');
+    // Evitar múltiples inicios simultáneos
+    if (this.isToggling) return;
+    this.isToggling = true;
 
     try {
-      // Ensure camera container is visible
-      this.cameraContainer.style.display = 'block';
+      this.showLoading('Iniciando cámara...');
+      
+      // Detener cámara si ya está encendida
+      if (this.isCameraOn) {
+        await this.stopCamera();
+        return;
+      }
 
-      // Request camera access
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      });
+      // Obtener stream de la cámara con manejo de errores mejorado
+      try {
+        const constraints = {
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        };
+        
+        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (error) {
+        // Intentar con restricciones menos estrictas si falla
+        console.warn('No se pudo obtener la cámara con restricciones estrictas, intentando con restricciones más flexibles...');
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
 
+      // Configurar elemento de video
+      this.video = document.createElement('video');
+      this.video.playsInline = true;
+      this.video.muted = true;
       this.video.srcObject = this.stream;
-
-      // Wait for video to be ready
+      
+      // Esperar a que el video esté listo con timeout
       await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Tiempo de espera agotado al cargar el video'));
+        }, 5000);
+
         this.video.onloadedmetadata = () => {
-          this.video.play()
-            .then(() => {
-              console.log('Video play started successfully');
-              resolve();
-            })
-            .catch(err => {
-              console.error('Error playing video:', err);
-              reject(new Error('No se pudo reproducir el video'));
-            });
+          clearTimeout(timeout);
+          this.video.play().then(resolve).catch(reject);
         };
 
-        // Set timeout for video loading
-        setTimeout(() => {
-          console.error('Video loading timeout');
-          reject(new Error('Tiempo de espera agotado al cargar el video'));
-        }, 10000);
+        this.video.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error('Error al reproducir el video'));
+        };
       });
 
-      // Start recognition
-      this.recognitionInterval = setInterval(() => this.recognizePlate(), this.recognitionTimeout);
+      // Limpiar contenedor y agregar video
+      this.cameraContainer.innerHTML = '';
+      this.cameraContainer.appendChild(this.video);
+
+      // Inicializar OCR si no está inicializado
+      if (!window.ocrInitialized) {
+        try {
+          await this.initOCR();
+          window.ocrInitialized = true;
+        } catch (error) {
+          console.error('Error al inicializar OCR:', error);
+          throw new Error('No se pudo inicializar el sistema de reconocimiento');
+        }
+      }
+
+      // Iniciar bucle de reconocimiento
       this.isCameraOn = true;
       this.startButton.textContent = 'Detener Cámara';
-      this.updateResult('Cámara activa. Escaneando...', 'black');
-
+      this.updateResult('Escaneando...', 'black');
+      
+      // Usar requestAnimationFrame con referencia para poder cancelarlo
+      const processFrame = async () => {
+        if (!this.isCameraOn) return;
+        
+        try {
+          await this.recognizePlate();
+        } catch (error) {
+          console.error('Error en el reconocimiento:', error);
+        }
+        
+        if (this.isCameraOn) {
+          this.animationFrameId = requestAnimationFrame(processFrame);
+        }
+      };
+      
+      this.animationFrameId = requestAnimationFrame(processFrame);
     } catch (error) {
-      console.error('Camera error:', error);
+      console.error('Error en startCamera:', error);
       this.handleCameraError(error);
-      throw error;
     } finally {
+      this.isToggling = false;
       this.hideLoading();
     }
   }
 
   async stopCamera() {
     console.log('Stopping camera...');
+    
+    // Evitar múltiples detenciones simultáneas
+    if (this.isToggling) return;
+    this.isToggling = true;
 
-    if (this.recognitionInterval) {
-      clearInterval(this.recognitionInterval);
-      this.recognitionInterval = null;
+    try {
+      // Detener el bucle de reconocimiento
+      this.isCameraOn = false;
+      
+      // Cancelar el frame animation
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+
+      // Limpiar intervalos
+      if (this.recognitionInterval) {
+        clearInterval(this.recognitionInterval);
+        this.recognitionInterval = null;
+      }
+
+      // Detener los tracks de la cámara
+      if (this.stream) {
+        this.stream.getTracks().forEach(track => {
+          track.stop();
+          this.stream.removeTrack(track);
+        });
+        this.stream = null;
+      }
+
+      // Limpiar el elemento de video
+      if (this.video) {
+        this.video.pause();
+        this.video.srcObject = null;
+        if (this.video.parentNode === this.cameraContainer) {
+          this.cameraContainer.removeChild(this.video);
+        }
+        this.video = null;
+      }
+
+      // Actualizar la interfaz de usuario
+      if (this.startButton) {
+        this.startButton.textContent = 'Iniciar Cámara';
+      }
+      
+      this.updateResult('Cámara detenida', 'black');
+      
+    } catch (error) {
+      console.error('Error al detener la cámara:', error);
+      this.updateResult('Error al detener la cámara', 'red');
+    } finally {
+      this.isToggling = false;
+      this.hideLoading();
     }
-
-    if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
-      this.stream = null;
-    }
-
-    if (this.video) {
-      this.video.srcObject = null;
-    }
-
-    this.startButton.textContent = 'Iniciar Cámara';
-    this.updateResult('Cámara detenida', 'black');
-    this.isCameraOn = false;
   }
 
   async recognizePlate() {

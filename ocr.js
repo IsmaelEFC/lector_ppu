@@ -1,6 +1,7 @@
 import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/esm/ort.min.js';
 import { CHARSET, cleanPlateText, PLATE_FORMATS, validatePlateFormat } from './charset.js';
 
+// Configuración global
 let session;
 let modelLoaded = false;
 let config = {
@@ -9,138 +10,134 @@ let config = {
   countryCode: 'CL'
 };
 
+// Función para actualizar configuración
 export function setOCRConfig(newConfig) {
   config = { ...config, ...newConfig };
-  console.log('OCR config updated:', config);
+  console.log('Configuración actualizada:', config);
 }
 
+// Cargar modelo OCR
 export async function loadOCRModel() {
   if (modelLoaded) return true;
-  
-  try {
-    console.log('Loading OCR model...');
-    
-    // Configuración de ONNX Runtime
-    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-    ort.env.wasm.numThreads = 1;
-    
-    // Ruta del modelo (ajusta según tu necesidad)
-    const modelPath = './model/license_plates_ocr_model.onnx';
-    
-    // Cargar modelo
-    session = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['wasm'],
-      graphOptimizationLevel: 'all'
-    });
 
-    // Información de compatibilidad
-    console.log('Model loaded successfully. Inputs:', session.inputNames);
-    
-    modelLoaded = true;
-    return true;
-    
-  } catch (error) {
-    console.error('Failed to load OCR model:', error);
-    
-    // Intentar con modelo de prueba si falla
+  console.log('Cargando modelo OCR...');
+  
+  // Configurar ONNX Runtime
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+  ort.env.wasm.numThreads = 1;
+
+  // Lista de posibles ubicaciones del modelo
+  const modelLocations = [
+    './model/license_plates_ocr_model.onnx',
+    './license_plates_ocr_model.onnx',
+    'https://tu-cdn.com/path/to/license_plates_ocr_model.onnx'
+  ];
+
+  let lastError;
+  
+  // Intentar cargar de cada ubicación hasta tener éxito
+  for (const modelPath of modelLocations) {
     try {
-      console.log('Trying with test model...');
-      session = await ort.InferenceSession.create(
-        'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/test/data/squeezenet.onnx', 
-        { executionProviders: ['wasm'] }
-      );
+      console.log(`Intentando cargar modelo desde: ${modelPath}`);
+      
+      // Verificar si la ruta es una URL remota
+      const isRemote = modelPath.startsWith('http');
+      
+      if (!isRemote) {
+        // Para rutas locales, verificar si el archivo existe
+        const response = await fetch(modelPath, { method: 'HEAD' });
+        if (!response.ok) {
+          console.warn(`Modelo no encontrado en: ${modelPath}`);
+          continue;
+        }
+      }
+
+      // Cargar el modelo
+      session = await ort.InferenceSession.create(modelPath, {
+        executionProviders: ['wasm'],
+        graphOptimizationLevel: 'all'
+      });
+
+      console.log('Modelo cargado exitosamente desde:', modelPath);
+      console.log('Entradas del modelo:', session.inputNames);
+      console.log('Salidas del modelo:', session.outputNames);
+      
       modelLoaded = true;
       return true;
-    } catch (fallbackError) {
-      console.error('Fallback model also failed:', fallbackError);
-      throw new Error('No se pudo cargar ningún modelo OCR. Verifica la conexión.');
+      
+    } catch (error) {
+      lastError = error;
+      console.warn(`Error al cargar el modelo desde ${modelPath}:`, error.message);
+      // Continuar con la siguiente ubicación
     }
   }
+  
+  // Si llegamos aquí, todas las ubicaciones fallaron
+  const errorMsg = 'No se pudo cargar ningún modelo OCR. Asegúrese de que el modelo está disponible.';
+  console.error(errorMsg);
+  throw new Error(errorMsg, { cause: lastError });
 }
 
+// Preprocesamiento de imagen
 function preprocessImage(video) {
   try {
-    // Target dimensions (adjust based on model requirements)
     const width = 100, height = 32;
-    const channels = 1; // Grayscale
-    
-    console.log(`Preprocessing image to ${width}x${height} grayscale`);
-    
-    // Create canvas for processing
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    
-    // Get 2D context with willReadFrequently for better performance
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    
-    // Draw the video frame to canvas
+
+    // 1. Dibujar frame con ajustes
     ctx.drawImage(video, 0, 0, width, height);
     
-    // Apply contrast enhancement
-    ctx.filter = 'contrast(1.5)';
+    // 2. Aplicar filtros de mejora
+    ctx.filter = 'contrast(1.5) brightness(1.2) grayscale(100%)';
     ctx.drawImage(canvas, 0, 0);
-    
-    // Get image data
+
+    // 3. Obtener datos de imagen
     const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-    
-    // Create a new Float32Array for the grayscale image
-    const input = new Float32Array(width * height * channels);
-    
-    // Convert to grayscale and normalize to [0, 1]
-    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-      // Convert to grayscale using luminosity method
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+    const input = new Float32Array(width * height);
+
+    // 4. Normalización mejorada
+    for (let i = 0, j = 0; i < imageData.data.length; i += 4, j++) {
+      const r = imageData.data[i];
+      const g = imageData.data[i + 1];
+      const b = imageData.data[i + 2];
       
-      // Grayscale conversion (values 0-255)
-      let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      // Conversión a escala de grises
+      let gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       
-      // Apply contrast stretching and normalize to [0, 1]
-      gray = Math.min(255, Math.max(0, (gray - 51) * 1.5)) / 255; // 51 is ~0.2 * 255
+      // Ajuste de contraste
+      gray = Math.pow((gray - 0.5) * 1.5 + 0.5, 1.5);
+      gray = Math.min(1, Math.max(0, gray));
       
       input[j] = gray;
     }
-    
-    // Log tensor details
-    console.log('Preprocessed tensor:', {
-      type: 'float32',
-      shape: [1, channels, height, width],
-      min: Math.min(...input),
-      max: Math.max(...input),
-      mean: input.reduce((a, b) => a + b, 0) / input.length,
-      first10: Array.from(input).slice(0, 10)
-    });
-    
-    // Create and return the tensor with shape [batch, channels, height, width]
-    return new ort.Tensor('float32', input, [1, channels, height, width]);
-    
+
+    return new ort.Tensor('float32', input, [1, 1, height, width]);
+
   } catch (error) {
-    console.error('Error preprocessing image:', error);
-    throw new Error('Error al procesar la imagen de la cámara');
+    console.error('Error en preprocesamiento:', error);
+    throw error;
   }
 }
 
+// Decodificación de resultados
 function decodeOutput(output) {
   try {
-    console.log('Raw model output:', {
-      data: output.data,
-      dims: output.dims,
-      type: output.type
-    });
-    
     const scores = output.data;
-    const [seqLength, batchSize, numClasses] = output.dims;
-    let result = '', prev = -1;
-    
-    console.log(`Decoding output: seqLength=${seqLength}, numClasses=${numClasses}`);
-    
+    const [seqLength, _, numClasses] = output.dims;
+    let result = '';
+    let prevChar = '';
+    let confidence = 0;
+    let charCount = 0;
+
+    // Procesar cada paso de tiempo
     for (let t = 0; t < seqLength; t++) {
-      let maxScore = -Infinity, maxIndex = -1;
-      
-      // Find the most likely character at this timestep
+      let maxScore = -Infinity;
+      let maxIndex = -1;
+
+      // Encontrar carácter más probable
       for (let c = 0; c < numClasses; c++) {
         const score = scores[t * numClasses + c];
         if (score > maxScore) {
@@ -148,164 +145,102 @@ function decodeOutput(output) {
           maxIndex = c;
         }
       }
-      
-      // Log each character's score for debugging
-      console.log(`Timestep ${t}: maxIndex=${maxIndex}, char=${CHARSET[maxIndex] || '?'}, score=${maxScore.toFixed(4)}`);
-      
-      // Only add the character if it's above the confidence threshold
-      // and it's not the same as the previous character (removes duplicates)
-      if (maxIndex !== -1 && maxIndex < CHARSET.length) {
-        if (maxScore > config.confidenceThreshold) {
-          result += CHARSET[maxIndex];
-          console.log(`Added character: ${CHARSET[maxIndex]} (score: ${maxScore.toFixed(4)})`);
+
+      // Filtrar por confianza y duplicados
+      if (maxIndex !== -1 && maxScore > config.confidenceThreshold) {
+        const currentChar = CHARSET[maxIndex];
+        
+        if (currentChar !== prevChar) {
+          result += currentChar;
+          confidence += maxScore;
+          charCount++;
+          prevChar = currentChar;
         }
-        prev = maxIndex;
       }
     }
+
+    // Calcular confianza promedio
+    const avgConfidence = charCount > 0 ? confidence / charCount : 0;
     
-    console.log('Raw recognized text before filtering:', result);
-    
-    // Clean the recognized text using our utility function
+    // Filtrar resultados con baja confianza
+    if (avgConfidence < config.confidenceThreshold * 0.8) {
+      console.log('Resultado descartado por baja confianza');
+      return '';
+    }
+
+    // Limpiar y formatear texto
     const cleanedText = cleanPlateText(result);
-    console.log('Cleaned plate text:', cleanedText);
     
-    // Validate against selected country format
-    const isValid = validatePlateFormat(cleanedText, config.countryCode);
-    
-    if (isValid) {
-      console.log(`Valid ${config.countryCode} plate detected:`, cleanedText);
+    // Validar formato según país
+    if (validatePlateFormat(cleanedText, config.countryCode)) {
+      console.log(`Placa válida detectada: ${cleanedText}`);
       return cleanedText;
     }
-    
-    // Fallback: Check if we have at least 3 alphanumeric characters
+
+    // Permitir resultados parciales
     if (cleanedText.length >= 3) {
-      console.log('Partial plate detected (3+ chars):', cleanedText);
+      console.log(`Detección parcial: ${cleanedText}`);
       return cleanedText;
     }
-    
-    console.log('No valid plate detected');
+
     return '';
-    
+
   } catch (error) {
-    console.error('Error decoding output:', error);
+    console.error('Error decodificando salida:', error);
     return '';
   }
 }
 
+// Función principal de reconocimiento
 export async function recognizePlate(video) {
   if (!modelLoaded) {
-    console.warn('OCR model not loaded yet');
+    console.warn('Modelo OCR no cargado');
     return '';
   }
-  
+
   try {
-    if (!video) {
-      console.warn('Video element is null or undefined');
+    // Verificar estado del video
+    if (!video || video.readyState < 2) {
+      console.warn('Video no listo para reconocimiento');
       return '';
     }
-    
-    if (video.readyState !== 4) { // 4 = HAVE_ENOUGH_DATA
-      console.warn('Video not ready, readyState:', video.readyState);
-      return '';
-    }
-    
-    console.log('Preprocessing video frame...');
+
+    // 1. Preprocesamiento
     const inputTensor = preprocessImage(video);
     
-    if (!inputTensor || !inputTensor.data) {
-      console.error('Failed to create input tensor');
+    // 2. Verificar tensor de entrada
+    if (!inputTensor?.data) {
+      console.error('Tensor de entrada inválido');
       return '';
     }
-    
-    // Log tensor details before running the model
-    console.log('Input tensor details:', {
-      type: inputTensor.type,
-      dims: inputTensor.dims,
-      dataType: inputTensor.data.constructor.name,
-      dataLength: inputTensor.data.length,
-      first10Values: Array.from(inputTensor.data).slice(0, 10)
-    });
-    
-    console.log('Running OCR model...');
-    
+
+    // 3. Ejecutar modelo con timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     try {
-      // Get the expected input name from the session
-      const inputName = session.inputNames[0];
+      const output = await session.run(
+        { [session.inputNames[0]]: inputTensor },
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+
+      // 4. Procesar resultados
+      const plateText = decodeOutput(output[session.outputNames[0]]);
       
-      // Create input feed with the correct input name
-      const inputFeed = {};
-      inputFeed[inputName] = inputTensor;
-      
-      console.log('Running model with input feed:', {
-        inputName,
-        inputShape: inputTensor.dims,
-        inputType: inputTensor.type
-      });
-      
-      // Run the model
-      const output = await session.run(inputFeed);
-      
-      if (!output) {
-        console.error('No output from OCR model');
-        return '';
-      }
-      
-      // Get the first output (assuming single output model)
-      const outputName = session.outputNames[0];
-      const outputTensor = output[outputName];
-      
-      if (!outputTensor) {
-        console.error('No output tensor found in model output');
-        return '';
-      }
-      
-      console.log('Model output received:', {
-        outputName,
-        type: outputTensor.type,
-        dims: outputTensor.dims,
-        dataType: outputTensor.data.constructor.name,
-        dataLength: outputTensor.data.length,
-        first10: Array.from(outputTensor.data).slice(0, 10)
-      });
-      
-      // Decode the output
-      const plateText = decodeOutput(outputTensor);
-      console.log('Decoded plate text:', plateText);
-      return plateText || '';
-      
-    } catch (modelError) {
-      console.error('Error during model execution:', {
-        name: modelError.name,
-        message: modelError.message,
-        stack: modelError.stack
-      });
-      
-      // Try to force float32 type if there's a type mismatch
-      if (modelError.message.includes('Unexpected input data type') && 
-          inputTensor.type !== 'float32') {
-        console.log('Attempting to convert tensor to float32...');
-        const float32Data = new Float32Array(inputTensor.data);
-        const fixedTensor = new ort.Tensor('float32', float32Data, inputTensor.dims);
-        
-        try {
-          const output = await session.run({ input: fixedTensor });
-          if (output?.output) {
-            return decodeOutput(output.output) || '';
-          }
-        } catch (retryError) {
-          console.error('Retry with float32 tensor failed:', retryError);
-        }
+      if (plateText) {
+        console.log('Placa reconocida:', plateText);
+        return plateText;
       }
       
       return '';
+    } catch (modelError) {
+      clearTimeout(timeoutId);
+      console.error('Error en modelo:', modelError);
+      return '';
     }
-    
   } catch (error) {
-    console.error('Error in recognizePlate:', {
-      error: error.message,
-      stack: error.stack,
-      name: error.name
-    });
+    console.error('Error en reconocimiento:', error);
     return '';
   }
 }

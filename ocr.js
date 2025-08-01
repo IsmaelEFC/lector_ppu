@@ -2,7 +2,7 @@
 import { CHARSET, cleanPlateText, PLATE_FORMATS, validatePlateFormat } from './charset.js';
 
 // Global configuration
-let session;
+let session = null;
 let modelLoaded = false;
 let config = {
   recognitionInterval: 2000,
@@ -13,99 +13,95 @@ let config = {
 // Function to update configuration
 export function setOCRConfig(newConfig) {
   config = { ...config, ...newConfig };
-  console.log('Configuración actualizada:', config);
+  console.log('OCR config updated:', config);
+  return true;
+}
+
+// Check if ONNX Runtime is available
+function isONNXRuntimeAvailable() {
+  return typeof ort !== 'undefined' && typeof ort.InferenceSession !== 'undefined';
 }
 
 // Load OCR model
 export async function loadOCRModel() {
-  if (modelLoaded) return true;
+  if (modelLoaded && session !== null) return true;
   
-  // Check if ONNX Runtime is available
-  if (typeof ort === 'undefined') {
-    throw new Error('ONNX Runtime no está cargado. Por favor, recarga la página.');
+  console.log('Loading OCR model...');
+  
+  if (!isONNXRuntimeAvailable()) {
+    const errorMsg = 'ONNX Runtime is not available. Please check if the script is properly loaded.';
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
-
-  console.log('Cargando modelo OCR...');
   
-  try {
-    // Configure ONNX Runtime
-    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-    ort.env.wasm.numThreads = 1;
-    ort.env.wasm.simd = true;
+  // List of possible model locations
+  const modelLocations = [
+    './model/license_plates_ocr_model.onnx',
+    './license_plates_ocr_model.onnx',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/test/data/squeezenet.onnx' // Fallback test model
+  ];
 
-    // List of possible model locations
-    const modelLocations = [
-      './model/license_plates_ocr_model.onnx',
-      './license_plates_ocr_model.onnx',
-      'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.0/test/data/squeezenet.onnx' // Fallback test model
-    ];
-
-    let lastError;
-    
-    // Try loading from each location until successful
-    for (const modelPath of modelLocations) {
-      try {
-        console.log(`Intentando cargar modelo desde: ${modelPath}`);
-        
-        // For local files, check if they exist first
-        if (!modelPath.startsWith('http')) {
-          try {
-            const response = await fetch(modelPath, { method: 'HEAD' });
-            if (!response.ok) {
-              console.warn(`Modelo no encontrado en: ${modelPath}`);
-              continue;
-            }
-          } catch (error) {
-            console.warn(`Error al verificar el modelo en ${modelPath}:`, error.message);
+  let lastError = null;
+  
+  // Try loading from each location until successful
+  for (const modelPath of modelLocations) {
+    try {
+      console.log(`Trying to load model from: ${modelPath}`);
+      
+      // For local files, check if they exist first
+      if (!modelPath.startsWith('http')) {
+        try {
+          const response = await fetch(modelPath, { method: 'HEAD' });
+          if (!response.ok) {
+            console.warn(`Model not found at: ${modelPath}`);
             continue;
           }
-        }
-
-        // Load the model with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-        try {
-          session = await ort.InferenceSession.create(modelPath, {
-            executionProviders: ['wasm'],
-            graphOptimizationLevel: 'all',
-            executionMode: 'parallel',
-            enableCpuMemArena: true,
-            enableMemPattern: true,
-            enableProfiling: false,
-            logSeverityLevel: 1, // 0:Verbose, 1:Info, 2:Warning, 3:Error, 4:Fatal
-            logVerbosityLevel: 1
-          });
-          
-          clearTimeout(timeoutId);
-
-          console.log('Modelo cargado exitosamente desde:', modelPath);
-          console.log('Entradas del modelo:', session.inputNames);
-          console.log('Salidas del modelo:', session.outputNames);
-          
-          modelLoaded = true;
-          return true;
-          
         } catch (error) {
-          clearTimeout(timeoutId);
-          throw error; // Re-throw to be caught by the outer catch
+          console.warn(`Error checking model at ${modelPath}:`, error.message);
+          continue;
         }
-      } catch (error) {
-        lastError = error;
-        console.warn(`Error al cargar el modelo desde ${modelPath}:`, error.message);
-        // Continue with next location
       }
+
+      // Load the model with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      try {
+        session = await ort.InferenceSession.create(modelPath, {
+          executionProviders: ['wasm'],
+          graphOptimizationLevel: 'all',
+          executionMode: 'parallel',
+          enableCpuMemArena: true,
+          enableMemPattern: true,
+          enableProfiling: false,
+          logSeverityLevel: 1,
+          logVerbosityLevel: 1
+        });
+        
+        clearTimeout(timeoutId);
+
+        console.log('Model loaded successfully from:', modelPath);
+        console.log('Model input names:', session.inputNames);
+        console.log('Model output names:', session.outputNames);
+        
+        modelLoaded = true;
+        return true;
+        
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error; // Re-throw to be caught by the outer catch
+      }
+    } catch (error) {
+      lastError = error;
+      console.warn(`Failed to load model from ${modelPath}:`, error.message);
+      // Continue with next location
     }
-    
-    // If we get here, all locations failed
-    const errorMsg = 'No se pudo cargar ningún modelo OCR. Asegúrese de que el modelo está disponible.';
-    console.error(errorMsg);
-    throw new Error(errorMsg, { cause: lastError });
-    
-  } catch (error) {
-    console.error('Error fatal al cargar el modelo OCR:', error);
-    throw new Error('Error al cargar el modelo OCR. Por favor recarga la página.');
   }
+  
+  // If we get here, all locations failed
+  const errorMsg = 'Failed to load any OCR model. Please ensure the model is available.';
+  console.error(errorMsg);
+  throw new Error(errorMsg, { cause: lastError });
 }
 
 // Preprocesamiento de imagen

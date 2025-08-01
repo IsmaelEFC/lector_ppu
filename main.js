@@ -143,14 +143,28 @@ class LicensePlateReader {
     try {
       console.log('Loading OCR model...');
       this.showLoading('Cargando modelo OCR...');
-      await loadOCRModel();
-      console.log('OCR model loaded successfully');
-      this.updateResult('Listo para escanear', 'black');
+      
+      // Check if ONNX Runtime is available
+      if (typeof ort === 'undefined') {
+        throw new Error('ONNX Runtime no está disponible. Por favor recarga la página.');
+      }
+      
+      // Try to load the OCR model
+      try {
+        await loadOCRModel();
+        console.log('OCR model loaded successfully');
+        this.hideLoading();
+        return true;
+      } catch (error) {
+        console.error('Error loading OCR model:', error);
+        this.updateResult('Error al cargar el modelo OCR: ' + (error.message || 'Error desconocido'), 'red');
+        throw new Error('No se pudo cargar el modelo OCR. Asegúrate de que el modelo está disponible.');
+      }
     } catch (error) {
-      console.error('Error initializing OCR:', error);
-      this.updateResult('Error al cargar el modelo OCR', 'red');
-    } finally {
+      console.error('Error in initOCR:', error);
       this.hideLoading();
+      this.updateResult('Error: ' + (error.message || 'Error desconocido'), 'red');
+      throw error;
     }
   }
 
@@ -173,91 +187,89 @@ class LicensePlateReader {
   }
 
   async startCamera() {
-    // Evitar múltiples inicios simultáneos
     if (this.isToggling) return;
     this.isToggling = true;
-
+    
     try {
       this.showLoading('Iniciando cámara...');
       
-      // Detener cámara si ya está encendida
+      // If camera is already on, stop it
       if (this.isCameraOn) {
         await this.stopCamera();
         return;
       }
-
-      // Obtener stream de la cámara con manejo de errores mejorado
+      
+      // Request camera access
       try {
-        const constraints = {
+        this.stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode: 'environment',
             width: { ideal: 1280 },
             height: { ideal: 720 }
           },
           audio: false
-        };
-        
-        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (error) {
-        // Intentar con restricciones menos estrictas si falla
-        console.warn('No se pudo obtener la cámara con restricciones estrictas, intentando con restricciones más flexibles...');
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
         });
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        throw new Error('No se pudo acceder a la cámara. Asegúrate de haber otorgado los permisos necesarios.');
       }
-
-      // Configurar elemento de video
+      
+      // Set up video element
       this.video = document.createElement('video');
       this.video.playsInline = true;
       this.video.muted = true;
       this.video.srcObject = this.stream;
       
-      // Esperar a que el video esté listo con timeout
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Tiempo de espera agotado al cargar el video'));
-        }, 5000);
-
-        this.video.onloadedmetadata = () => {
-          clearTimeout(timeout);
-          this.video.play().then(resolve).catch(reject);
-        };
-
-        this.video.onerror = () => {
-          clearTimeout(timeout);
-          reject(new Error('Error al reproducir el video'));
-        };
-      });
-
-      // Limpiar contenedor y agregar video
+      // Wait for video to be ready
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Tiempo de espera agotado al cargar el video'));
+          }, 5000);
+          
+          this.video.onloadedmetadata = () => {
+            clearTimeout(timeout);
+            this.video.play().then(resolve).catch(reject);
+          };
+          
+          this.video.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error('Error al reproducir el video'));
+          };
+        });
+      } catch (error) {
+        console.error('Error setting up video:', error);
+        throw new Error('Error al configurar la cámara. Por favor, inténtalo de nuevo.');
+      }
+      
+      // Clear previous video if any and append the new one
       this.cameraContainer.innerHTML = '';
       this.cameraContainer.appendChild(this.video);
-
-      // Inicializar OCR si no está inicializado
+      
+      // Initialize OCR if not already done
       if (!window.ocrInitialized) {
         try {
           await this.initOCR();
           window.ocrInitialized = true;
         } catch (error) {
-          console.error('Error al inicializar OCR:', error);
-          throw new Error('No se pudo inicializar el sistema de reconocimiento');
+          console.error('Failed to initialize OCR:', error);
+          throw new Error('Error al inicializar el reconocimiento de patentes.');
         }
       }
-
-      // Iniciar bucle de reconocimiento
+      
+      // Update UI
       this.isCameraOn = true;
       this.startButton.textContent = 'Detener Cámara';
-      this.updateResult('Escaneando...', 'black');
+      this.updateResult('Escaneando patentes...', 'black');
       
-      // Usar requestAnimationFrame con referencia para poder cancelarlo
+      // Start recognition loop
       const processFrame = async () => {
         if (!this.isCameraOn) return;
         
         try {
           await this.recognizePlate();
         } catch (error) {
-          console.error('Error en el reconocimiento:', error);
+          console.error('Error recognizing plate:', error);
         }
         
         if (this.isCameraOn) {
@@ -266,9 +278,20 @@ class LicensePlateReader {
       };
       
       this.animationFrameId = requestAnimationFrame(processFrame);
+      
     } catch (error) {
-      console.error('Error en startCamera:', error);
-      this.handleCameraError(error);
+      console.error('Error in startCamera:', error);
+      this.updateResult(error.message || 'Error al iniciar la cámara', 'red');
+      
+      // Clean up if there was an error
+      if (this.stream) {
+        this.stream.getTracks().forEach(track => track.stop());
+        this.stream = null;
+      }
+      
+      this.isCameraOn = false;
+      this.startButton.textContent = 'Iniciar Cámara';
+      
     } finally {
       this.isToggling = false;
       this.hideLoading();

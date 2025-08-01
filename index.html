@@ -8,8 +8,12 @@
   <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
   <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
   
+  <!-- Load ONNX Runtime Web -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
   <!-- Preload WASM files for better performance -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm" as="fetch" type="application/wasm" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm" as="fetch" type="application/wasm" crossorigin="anonymous">
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="credentialless">
   
   <title>Lector de Patentes</title>
   <link rel="manifest" href="manifest.json">

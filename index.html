@@ -428,23 +428,63 @@
         this.isScanning = true;
         this.showStatus('Analizando imagen...', 'scanning');
 
+        let worker;
+        
         try {
-          // Recortar la región de interés (donde está el overlay)
-          const imageData = this.getROIImageData();
+          // Verificar si el video está listo
+          if (!this.video.videoWidth || !this.video.videoHeight) {
+            throw new Error('El video no está listo. Por favor, inicia la cámara primero.');
+          }
 
-          const { data: { text, confidence } } = await Tesseract.recognize(
-            imageData,
-            'spa',
-            {
-              logger: m => {
-                if (m.status === 'recognizing text') {
-                  this.showStatus(`Procesando... ${Math.round(m.progress * 100)}%`, 'scanning');
-                }
+          // Obtener la región de interés
+          const imageData = this.getROIImageData();
+          
+          if (!imageData) {
+            throw new Error('No se pudo obtener la imagen para análisis.');
+          }
+
+          // Crear un canvas temporal para el preprocesamiento
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = imageData.width;
+          tempCanvas.height = imageData.height;
+          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+          tempCtx.putImageData(imageData, 0, 0);
+
+          // Convertir a formato que Tesseract pueda procesar
+          const imageUrl = tempCanvas.toDataURL('image/jpeg', 0.9);
+
+          // Verificar si Tesseract está disponible
+          if (typeof Tesseract === 'undefined') {
+            throw new Error('El motor de OCR no está disponible. Por favor, verifica tu conexión.');
+          }
+
+          // Inicializar el worker de Tesseract
+          worker = await Tesseract.createWorker({
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                this.showStatus(`Procesando... ${Math.round(m.progress * 100)}%`, 'scanning');
               }
             }
-          );
+          });
+
+          await worker.loadLanguage('spa');
+          await worker.initialize('spa');
+          
+          // Configurar parámetros para mejorar el reconocimiento
+          await worker.setParameters({
+            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+            tessedit_pageseg_mode: '7',  // Tratar la imagen como una sola línea de texto
+            tessedit_ocr_engine_mode: '3' // Usar LSTM solo
+          });
+
+          const { data: { text, confidence } } = await worker.recognize(imageUrl);
+
+          if (!text) {
+            throw new Error('No se pudo extraer texto de la imagen');
+          }
 
           const cleanedText = this.cleanPlateText(text);
+          console.log('Texto detectado:', text, 'Limpio:', cleanedText);
 
           if (this.isValidChileanPlate(cleanedText)) {
             this.lastDetectedPlate = cleanedText;
@@ -452,11 +492,21 @@
             this.showStatus('¡Placa detectada correctamente!', 'success');
           } else {
             this.showStatus('No se detectó una placa válida. Intenta de nuevo.', 'error');
+            console.log('Texto no reconocido como placa válida:', cleanedText);
           }
-
         } catch (error) {
-          this.showStatus('Error en el análisis: ' + error.message, 'error');
+          const errorMessage = error?.message || 'Error desconocido al analizar la imagen';
+          console.error('Error en analyzeImage:', error);
+          this.showStatus('Error: ' + errorMessage, 'error');
         } finally {
+          // Limpiar el worker de Tesseract
+          if (worker) {
+            try {
+              await worker.terminate();
+            } catch (e) {
+              console.error('Error al terminar el worker de Tesseract:', e);
+            }
+          }
           this.isScanning = false;
         }
       }

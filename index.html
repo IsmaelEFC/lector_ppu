@@ -6,6 +6,9 @@
     <title>Detector de Patentes Chile</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     
@@ -619,7 +622,48 @@
 
         // Initialize app when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            new PlateDetector();
+            try {
+                // Agregar listener de emergencia para cerrar modal
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        try {
+                            document.getElementById('installPrompt').classList.add('hidden');
+                        } catch (error) {
+                            console.log('Error closing with escape:', error);
+                        }
+                    }
+                });
+
+                // Double tap para cerrar modal de emergencia
+                let lastTap = 0;
+                document.addEventListener('touchend', (e) => {
+                    const currentTime = new Date().getTime();
+                    const tapLength = currentTime - lastTap;
+                    if (tapLength < 500 && tapLength > 0) {
+                        try {
+                            const promptElement = document.getElementById('installPrompt');
+                            if (promptElement && !promptElement.classList.contains('hidden')) {
+                                promptElement.classList.add('hidden');
+                            }
+                        } catch (error) {
+                            console.log('Error in double tap close:', error);
+                        }
+                    }
+                    lastTap = currentTime;
+                });
+
+                new PlateDetector();
+            } catch (error) {
+                console.log('Error initializing app:', error);
+                // Si hay error, intentar inicializar solo la funcionalidad básica
+                try {
+                    const promptElement = document.getElementById('installPrompt');
+                    if (promptElement) promptElement.style.display = 'none';
+                    new PlateDetector();
+                } catch (fallbackError) {
+                    console.log('Fallback initialization failed:', fallbackError);
+                }
+            }
         });
     </script>
 </body>

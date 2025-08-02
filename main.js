@@ -548,4 +548,4 @@ class LicensePlateReader {
 }
 
 // Initialize the app
-export { LicensePlateReader as default };
+export default LicensePlateReader;

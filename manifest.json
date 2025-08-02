@@ -2,61 +2,37 @@
   "name": "Detector de Patentes Chile",
   "short_name": "PatentesChile",
   "description": "Aplicación para detectar placas patentes chilenas usando la cámara del móvil",
-  "start_url": "/",
+  "start_url": "/lector_ppu/",
   "display": "standalone",
   "background_color": "#667eea",
   "theme_color": "#2563eb",
   "orientation": "portrait",
-  "scope": "/",
+  "scope": "/lector_ppu/",
   "lang": "es",
   "categories": ["utilities", "productivity"],
   "icons": [
     {
-      "src": "icon-72.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzIiIGhlaWdodD0iNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJncmFkIiB4MT0iMCUiIHkxPSIwJSIgeDI6IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMjU2M2ViO3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzY2N2VlYTtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNzIiIGhlaWdodD0iNzIiIHJ4PSIyMCIgZmlsbD0idXJsKCNncmFkKSIvPjxyZWN0IHg9IjE0LjQiIHk9IjIxLjYiIHdpZHRoPSI0My4yIiBoZWlnaHQ9IjEwLjgiIHJ4PSI4IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC45Ii8+PHRleHQgeD0iMzYiIHk9IjMwLjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzMzIiBmb250LXNpemU9IjUuNzYiIGZvbnQtd2VpZ2h0PSJib2xkIj5DSElMRTwvdGV4dD48Y2lyY2xlIGN4PSIyMS42IiBjeT0iNTAuNCIgcj0iMy42IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC44Ii8+PGNpcmNsZSBjeD0iNTAuNCIgY3k9IjUwLjQiIHI9IjMuNiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuOCIvPjxyZWN0IHg9IjE4IiB5PSI0Ni44IiB3aWR0aD0iMzYiIGhlaWdodD0iNy4yIiByeD0iNCIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuNiIvPjwvc3ZnPg==",
       "sizes": "72x72",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-96.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJncmFkIiB4MT0iMCUiIHkxPSIwJSIgeDI6IjEwMCUiIHkyPSIxMDAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMjU2M2ViO3N0b3Atb3BhY2l0eToxIiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzY2N2VlYTtzdG9wLW9wYWNpdHk6MSIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHJ4PSIyMCIgZmlsbD0idXJsKCNncmFkKSIvPjxyZWN0IHg9IjE5LjIiIHk9IjI4LjgiIHdpZHRoPSI1Ny42IiBoZWlnaHQ9IjE0LjQiIHJ4PSI4IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC45Ii8+PHRleHQgeD0iNDgiIHk9IjQwLjMyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzMzIiBmb250LXNpemU9IjcuNjgiIGZvbnQtd2VpZ2h0PSJib2xkIj5DSElMRTwvdGV4dD48Y2lyY2xlIGN4PSIyOC44IiBjeT0iNjcuMiIgcj0iNC44IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC44Ii8+PGNpcmNsZSBjeD0iNjcuMiIgY3k9IjY3LjIiIHI9IjQuOCIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuOCIvPjxyZWN0IHg9IjI0IiB5PSI2Mi40IiB3aWR0aD0iNDgiIGhlaWdodD0iOS42IiByeD0iNCIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuNiIvPjwvc3ZnPg==",
       "sizes": "96x96",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-192.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4MjoiMTAwJSIgeTI6IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMyNTYzZWI7c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNjY3ZWVhO3N0b3Atb3BhY2l0eToxIiAvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjAiIGZpbGw9InVybCgjZ3JhZCkiLz48cmVjdCB4PSIzOC40IiB5PSI1Ny42IiB3aWR0aD0iMTE1LjIiIGhlaWdodD0iMjguOCIgcng9IjgiIGZpbGw9IndoaXRlIiBvcGFjaXR5PSIwLjkiLz48dGV4dCB4PSI5NiIgeT0iODAuNjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzMiIGZvbnQtc2l6ZT0iMTUuMzYiIGZvbnQtd2VpZ2h0PSJib2xkIj5DSElMRTwvdGV4dD48Y2lyY2xlIGN4PSI1Ny42IiBjeT0iMTM0LjQiIHI9IjkuNiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuOCIvPjxjaXJjbGUgY3g9IjEzNC40IiBjeT0iMTM0LjQiIHI9IjkuNiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuOCIvPjxyZWN0IHg9IjQ4IiB5PSIxMjQuOCIgd2lkdGg9Ijk2IiBoZWlnaHQ9IjE5LjIiIHJ4PSI0IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC42Ii8+PC9zdmc+",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4MjoiMTAwJSIgeTI6IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMyNTYzZWI7c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNjY3ZWVhO3N0b3Atb3BhY2l0eToxIiAvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMjAiIGZpbGw9InVybCgjZ3JhZCkiLz48cmVjdCB4PSIxMDIuNCIgeT0iMTUzLjYiIHdpZHRoPSIzMDcuMiIgaGVpZ2h0PSI3Ni44IiByeD0iOCIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuOSIvPjx0ZXh0IHg9IjI1NiIgeT0iMjE1LjA0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzMzIiBmb250LXNpemU9IjQwLjk2IiBmb250LXdlaWdodD0iYm9sZCI+Q0hJTEU8L3RleHQ+PGNpcmNsZSBjeD0iMTUzLjYiIGN5PSIzNTguNCIgcj0iMjUuNiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuOCIvPjxjaXJjbGUgY3g9IjM1OC40IiBjeT0iMzU4LjQiIHI9IjI1LjYiIGZpbGw9IndoaXRlIiBvcGFjaXR5PSIwLjgiLz48cmVjdCB4PSIxMjgiIHk9IjMzMi44IiB3aWR0aD0iMjU2IiBoZWlnaHQ9IjUxLjIiIHJ4PSI0IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC42Ii8+PC9zdmc+",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
@@ -65,7 +41,7 @@
       "name": "Escanear Patente",
       "short_name": "Escanear",
       "description": "Iniciar escaneo de placa patente",
-      "url": "/?action=scan",
+      "url": "/lector_ppu/?action=scan",
       "icons": [
         {
           "src": "icon-192.png",

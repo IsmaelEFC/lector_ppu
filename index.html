@@ -678,28 +678,7 @@
       }
     });
   </script>
-  <script>
-    // Generar iconos automáticamente si no existen
-    async function generateMissingIcons() {
-      const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
 
-      for (const size of sizes) {
-        try {
-          const response = await fetch(`icons/icon-${size}.png`);
-          if (!response.ok) {
-            // Generar icono si no existe
-            const iconData = IconGenerator.generateIcon(size);
-            console.log(`Icono ${size}x${size} generado automáticamente`);
-          }
-        } catch {
-          console.log(`Usando icono SVG generado para ${size}x${size}`);
-        }
-      }
-    }
-
-    // Ejecutar al cargar
-    generateMissingIcons();
-  </script>
 
 </body>
 

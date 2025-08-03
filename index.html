@@ -1,638 +1,129 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Detector de Patentes Chile</title>
-  <link rel="manifest" href="manifest.json">
+  <meta name="description" content="Aplicación para detectar placas patentes chilenas usando la cámara del móvil">
   <meta name="theme-color" content="#2563eb">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
-
+  <title>🚗 Detector de Patentes</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      color: white;
-    }
-
-    .container {
-      max-width: 500px;
-      margin: 0 auto;
+      font-family: Arial, sans-serif;
+      margin: 0;
       padding: 20px;
-      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
       display: flex;
       flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
     }
-
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .header h1 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-
-    .header p {
-      opacity: 0.9;
-      font-size: 14px;
-    }
-
-    .camera-container {
-      position: relative;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 20px;
-      overflow: hidden;
-      margin-bottom: 20px;
-      flex: 1;
-      min-height: 300px;
-    }
-
-    #video {
+    video, canvas {
       width: 100%;
-      height: 100%;
-      object-fit: cover;
+      max-width: 640px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    #video.active, #canvas.active {
       display: block;
     }
-
-    .camera-overlay {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 280px;
-      height: 80px;
-      border: 3px solid #00ff88;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
-    }
-
-    .camera-overlay::before {
-      content: 'Posiciona la placa aquí';
-      position: absolute;
-      top: -35px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 255, 136, 0.9);
+    button {
+      background: #00ff88;
       color: white;
-      padding: 5px 15px;
-      border-radius: 15px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-
-    .controls {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 10px;
-    }
-
-    .btn {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.2);
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      color: white;
-      padding: 15px 20px;
-      border-radius: 15px;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 25px;
       font-size: 16px;
-      font-weight: bold;
       cursor: pointer;
+      margin: 10px;
       transition: all 0.3s ease;
-      backdrop-filter: blur(10px);
     }
-
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.3);
-      border-color: rgba(255, 255, 255, 0.5);
+    button:hover {
+      background: #00cc6a;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #00ff88, #00cc6a);
-      border-color: #00ff88;
-    }
-
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #00cc6a, #00aa56);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
+    button:disabled {
+      background: #ccc;
       cursor: not-allowed;
     }
-
-    .result-container {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 15px;
-      padding: 20px;
-      margin-top: 20px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .result-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-    }
-
-    .result-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .result-label {
-      font-weight: bold;
-      opacity: 0.9;
-    }
-
-    .result-value {
-      font-family: 'Courier New', monospace;
+    #result, #confidence {
       font-size: 18px;
-      font-weight: bold;
-      color: #00ff88;
+      margin: 10px 0;
     }
-
-    .status {
-      text-align: center;
-      padding: 10px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      font-weight: bold;
-    }
-
-    .status.scanning {
-      background: rgba(255, 193, 7, 0.2);
-      color: #ffc107;
-      border: 1px solid rgba(255, 193, 7, 0.5);
-    }
-
-    .status.success {
-      background: rgba(40, 167, 69, 0.2);
-      color: #28a745;
-      border: 1px solid rgba(40, 167, 69, 0.5);
-    }
-
-    .status.error {
-      background: rgba(220, 53, 69, 0.2);
-      color: #dc3545;
-      border: 1px solid rgba(220, 53, 69, 0.5);
-    }
-
-    .hidden {
+    #error {
+      color: #ff4444;
       display: none;
+      margin: 10px 0;
     }
-
-    #canvas {
+    #loading {
       display: none;
+      font-size: 16px;
+      margin: 10px 0;
     }
-
-    .loading {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-
-
-    .flash {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: white;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 999;
-    }
-
-    .flash.active {
-      animation: flashEffect 0.3s ease-out;
-    }
-
-    @keyframes flashEffect {
-      0% {
-        opacity: 0;
-      }
-
-      50% {
-        opacity: 0.8;
-      }
-
-      100% {
-        opacity: 0;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .container {
-        padding: 15px;
-      }
-
-      .camera-overlay {
-        width: 250px;
-        height: 70px;
-      }
-
-      .btn {
-        padding: 12px 15px;
-        font-size: 14px;
-      }
+    #loading.active {
+      display: block;
     }
   </style>
 </head>
-
 <body>
-  <div class="flash" id="flash"></div>
+  <h1 data-i18n="title">🚗 Detector de Patentes</h1>
+  <p data-i18n="instructions">Apunta la cámara hacia la placa del vehículo</p>
 
-  <div class="container">
-    <div class="header">
-      <h1>🚗 Detector de Patentes</h1>
-      <p>Apunta la cámara hacia la placa del vehículo</p>
-    </div>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
 
-    <div class="camera-container">
-      <video id="video" autoplay muted playsinline></video>
-      <div class="camera-overlay"></div>
-    </div>
-
-    <canvas id="canvas"></canvas>
-
-    <div class="controls">
-      <div id="status" class="status hidden"></div>
-
-      <div class="btn-group">
-        <button id="startBtn" class="btn btn-primary">
-          📷 Iniciar Cámara
-        </button>
-        <button id="captureBtn" class="btn" disabled>
-          📸 Capturar
-        </button>
-      </div>
-
-      <button id="autoScanBtn" class="btn" disabled>
-        🔍 Escaneo Automático
-      </button>
-    </div>
-
-    <div id="results" class="result-container hidden">
-      <div class="result-item">
-        <span class="result-label">Placa Detectada:</span>
-        <span id="plateText" class="result-value">-</span>
-      </div>
-      <div class="result-item">
-        <span class="result-label">Confianza:</span>
-        <span id="confidence" class="result-value">-</span>
-      </div>
-      <button id="consultBtn" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
-        🔍 Consultar en AutoSeguro
-      </button>
-    </div>
+  <div>
+    <button id="startCamera" data-i18n="cameraStart" aria-label="Iniciar cámara">📷 Iniciar Cámara</button>
+    <button id="capture" data-i18n="capture" aria-label="Capturar imagen" disabled>📸 Capturar</button>
+    <button id="autoScan" data-i18n="autoScan" aria-label="Iniciar escaneo automático">🔍 Escaneo Automático</button>
   </div>
 
+  <div id="result" aria-live="polite">
+    <span data-i18n="plateDetected">Placa Detectada:</span> <span id="plate">-</span>
+  </div>
+  <div id="confidence" aria-live="polite">
+    <span data-i18n="confidence">Confianza:</span> <span id="confidenceValue">-</span>
+  </div>
+  <div id="loading" aria-live="polite" data-i18n="processing">Procesando...</div>
+  <div id="error" role="alert"></div>
 
+  <button id="consult" data-i18n="consulting" aria-label="Consultar en AutoSeguro" disabled>🔍 Consultar en AutoSeguro</button>
 
-  <!-- Tesseract.js OCR Library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
-
+  <script src="/utils.js"></script>
+  <script src="/charset.js"></script>
+  <script src="/ocr.js"></script>
+  <script src="/main.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js" defer></script>
   <script>
-    class PlateDetector {
-      constructor() {
-        this.video = document.getElementById('video');
-        this.canvas = document.getElementById('canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.startBtn = document.getElementById('startBtn');
-        this.captureBtn = document.getElementById('captureBtn');
-        this.autoScanBtn = document.getElementById('autoScanBtn');
-        this.consultBtn = document.getElementById('consultBtn');
-        this.status = document.getElementById('status');
-        this.results = document.getElementById('results');
-        this.plateText = document.getElementById('plateText');
-        this.confidence = document.getElementById('confidence');
-        this.flash = document.getElementById('flash');
-
-        this.stream = null;
-        this.isScanning = false;
-        this.autoScanInterval = null;
-        this.lastDetectedPlate = '';
-
-        this.initializeEventListeners();
-      }
-
-      initializeEventListeners() {
-        this.startBtn.addEventListener('click', () => this.startCamera());
-        this.captureBtn.addEventListener('click', () => this.captureAndAnalyze());
-        this.autoScanBtn.addEventListener('click', () => this.toggleAutoScan());
-        this.consultBtn.addEventListener('click', () => this.consultAutoSeguro());
-      }
-
-      async startCamera() {
+    // Generar iconos automáticamente si no existen
+    async function generateMissingIcons() {
+      const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+      for (const size of sizes) {
         try {
-          this.showStatus('Iniciando cámara...', 'scanning');
-
-          const constraints = {
-            video: {
-              facingMode: 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            }
-          };
-
-          this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-          this.video.srcObject = this.stream;
-
-          this.video.onloadedmetadata = () => {
-            this.canvas.width = this.video.videoWidth;
-            this.canvas.height = this.video.videoHeight;
-
-            this.startBtn.textContent = '🛑 Detener Cámara';
-            this.startBtn.onclick = () => this.stopCamera();
-            this.captureBtn.disabled = false;
-            this.autoScanBtn.disabled = false;
-
-            this.hideStatus();
-          };
-        } catch (error) {
-          this.showStatus('Error al acceder a la cámara: ' + error.message, 'error');
-        }
-      }
-
-      stopCamera() {
-        if (this.stream) {
-          this.stream.getTracks().forEach(track => track.stop());
-          this.stream = null;
-        }
-
-        this.video.srcObject = null;
-        this.startBtn.textContent = '📷 Iniciar Cámara';
-        this.startBtn.onclick = () => this.startCamera();
-        this.captureBtn.disabled = true;
-        this.autoScanBtn.disabled = true;
-
-        if (this.autoScanInterval) {
-          clearInterval(this.autoScanInterval);
-          this.autoScanInterval = null;
-          this.autoScanBtn.textContent = '🔍 Escaneo Automático';
-        }
-
-        this.hideStatus();
-        this.results.classList.add('hidden');
-      }
-
-      captureAndAnalyze() {
-        if (!this.stream) return;
-
-        this.flashEffect();
-        this.captureFrame();
-        this.analyzeImage();
-      }
-
-      captureFrame() {
-        this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-      }
-
-      async analyzeImage() {
-        if (this.isScanning) return;
-
-        this.isScanning = true;
-        this.showStatus('Analizando imagen...', 'scanning');
-
-        let worker;
-        
-        try {
-          // Verificar si el video está listo
-          if (!this.video.videoWidth || !this.video.videoHeight) {
-            throw new Error('El video no está listo. Por favor, inicia la cámara primero.');
+          const response = await fetch(`/icons/icon-${size}x${size}.png`);
+          if (!response.ok) {
+            const iconData = await IconGenerator.generateIconFile(size);
+            console.log(`Icono ${size}x${size} generado automáticamente`);
+            // Note: Actual icon saving requires server-side support or manual intervention
           }
-
-          // Obtener la región de interés
-          const imageData = this.getROIImageData();
-          
-          if (!imageData) {
-            throw new Error('No se pudo obtener la imagen para análisis.');
-          }
-
-          // Crear un canvas temporal para el preprocesamiento
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = imageData.width;
-          tempCanvas.height = imageData.height;
-          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-          tempCtx.putImageData(imageData, 0, 0);
-
-          // Convertir a formato que Tesseract pueda procesar
-          const imageUrl = tempCanvas.toDataURL('image/jpeg', 0.9);
-
-          // Verificar si Tesseract está disponible
-          if (typeof Tesseract === 'undefined') {
-            throw new Error('El motor de OCR no está disponible. Por favor, verifica tu conexión.');
-          }
-
-          // Inicializar el worker de Tesseract
-          worker = await Tesseract.createWorker({
-            logger: m => {
-              if (m.status === 'recognizing text') {
-                this.showStatus(`Procesando... ${Math.round(m.progress * 100)}%`, 'scanning');
-              }
-            }
-          });
-
-          await worker.loadLanguage('spa');
-          await worker.initialize('spa');
-          
-          // Configurar parámetros para mejorar el reconocimiento
-          await worker.setParameters({
-            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-            tessedit_pageseg_mode: '7',  // Tratar la imagen como una sola línea de texto
-            tessedit_ocr_engine_mode: '3' // Usar LSTM solo
-          });
-
-          const { data: { text, confidence } } = await worker.recognize(imageUrl);
-
-          if (!text) {
-            throw new Error('No se pudo extraer texto de la imagen');
-          }
-
-          const cleanedText = this.cleanPlateText(text);
-          console.log('Texto detectado:', text, 'Limpio:', cleanedText);
-
-          if (this.isValidChileanPlate(cleanedText)) {
-            this.lastDetectedPlate = cleanedText;
-            this.showResults(cleanedText, Math.round(confidence));
-            this.showStatus('¡Placa detectada correctamente!', 'success');
-          } else {
-            this.showStatus('No se detectó una placa válida. Intenta de nuevo.', 'error');
-            console.log('Texto no reconocido como placa válida:', cleanedText);
-          }
-        } catch (error) {
-          const errorMessage = error?.message || 'Error desconocido al analizar la imagen';
-          console.error('Error en analyzeImage:', error);
-          this.showStatus('Error: ' + errorMessage, 'error');
-        } finally {
-          // Limpiar el worker de Tesseract
-          if (worker) {
-            try {
-              await worker.terminate();
-            } catch (e) {
-              console.error('Error al terminar el worker de Tesseract:', e);
-            }
-          }
-          this.isScanning = false;
-        }
-      }
-
-      getROIImageData() {
-        // Calcular la región de interés basada en el overlay
-        const videoRect = this.video.getBoundingClientRect();
-        const overlayWidth = 280;
-        const overlayHeight = 80;
-
-        // Escalar a las dimensiones reales del canvas
-        const scaleX = this.canvas.width / this.video.videoWidth;
-        const scaleY = this.canvas.height / this.video.videoHeight;
-
-        const roiX = (this.canvas.width - overlayWidth * scaleX) / 2;
-        const roiY = (this.canvas.height - overlayHeight * scaleY) / 2;
-        const roiWidth = overlayWidth * scaleX;
-        const roiHeight = overlayHeight * scaleY;
-
-        return this.ctx.getImageData(roiX, roiY, roiWidth, roiHeight);
-      }
-
-      cleanPlateText(text) {
-        // Limpiar y formatear el texto detectado
-        return text
-          .replace(/[^\w]/g, '')  // Remover caracteres especiales
-          .replace(/[O]/g, '0')   // Reemplazar O por 0
-          .replace(/[I]/g, '1')   // Reemplazar I por 1
-          .toUpperCase()
-          .trim();
-      }
-
-      isValidChileanPlate(text) {
-        // Formatos de placas chilenas:
-        // LLLL00 (4 letras + 2 números) - formato viejo
-        // LL0000 (2 letras + 4 números) - formato viejo
-        // LLLL00 (4 letras + 2 números) - formato nuevo
-
-        const patterns = [
-          /^[A-Z]{4}[0-9]{2}$/,  // 4 letras + 2 números
-          /^[A-Z]{2}[0-9]{4}$/,  // 2 letras + 4 números
-          /^[A-Z]{3}[0-9]{3}$/   // 3 letras + 3 números (algunos casos especiales)
-        ];
-
-        return patterns.some(pattern => pattern.test(text)) && text.length >= 5;
-      }
-
-      toggleAutoScan() {
-        if (this.autoScanInterval) {
-          clearInterval(this.autoScanInterval);
-          this.autoScanInterval = null;
-          this.autoScanBtn.textContent = '🔍 Escaneo Automático';
-        } else {
-          this.autoScanInterval = setInterval(() => {
-            if (!this.isScanning) {
-              this.captureAndAnalyze();
-            }
-          }, 2000);
-          this.autoScanBtn.textContent = '⏹️ Detener Escaneo';
-        }
-      }
-
-      showResults(plateText, confidence) {
-        this.plateText.textContent = plateText;
-        this.confidence.textContent = confidence + '%';
-        this.results.classList.remove('hidden');
-      }
-
-      consultAutoSeguro() {
-        if (!this.lastDetectedPlate) return;
-
-        // Construir URL con los parámetros
-        const baseUrl = 'https://www.autoseguro.gob.cl/';
-        const params = new URLSearchParams({
-          placa: this.lastDetectedPlate
-        });
-
-        // Abrir en nueva ventana
-        window.open(baseUrl, '_blank');
-
-        // Mostrar instrucciones al usuario
-        this.showStatus(`Abriendo AutoSeguro.gob.cl - Ingresa manualmente: ${this.lastDetectedPlate}`, 'success');
-      }
-
-      showStatus(message, type) {
-        this.status.textContent = message;
-        this.status.className = `status ${type}`;
-        this.status.classList.remove('hidden');
-      }
-
-      hideStatus() {
-        this.status.classList.add('hidden');
-      }
-
-      flashEffect() {
-        this.flash.classList.add('active');
-        setTimeout(() => this.flash.classList.remove('active'), 300);
-      }
-
-      // Service Worker registration
-      registerServiceWorker() {
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('sw.js')
-            .then(registration => console.log('Service Worker registered'))
-            .catch(error => console.log('Service Worker registration failed:', error));
+        } catch {
+          console.log(`Usando icono SVG generado para ${size}x${size}`);
         }
       }
     }
 
-    // Initialize app when DOM is loaded
+    // Ejecutar al cargar
     document.addEventListener('DOMContentLoaded', () => {
-      try {
-        new PlateDetector();
-      } catch (error) {
-        console.log('Error initializing app:', error);
-        // Try basic initialization if the main one fails
-        try {
-          new PlateDetector();
-        } catch (fallbackError) {
-          console.log('Fallback initialization failed:', fallbackError);
-        }
-      }
+      generateMissingIcons();
+      // Lazy load WebAssembly files
+      const wasmScript = document.createElement('script');
+      wasmScript.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm';
+      document.head.appendChild(wasmScript);
     });
   </script>
-
-
 </body>
-
 </html>

@@ -2,7 +2,6 @@
 
 /**
  * Generador de iconos dinámicos para PWA
- * Crea iconos SVG para usar como fallback
  */
 class IconGenerator {
     static generateIcon(size = 192, color = '#2563eb') {
@@ -25,7 +24,6 @@ class IconGenerator {
                       rx="4" fill="white" opacity="0.6"/>
             </svg>
         `;
-        
         return `data:image/svg+xml;base64,${btoa(svg)}`;
     }
 
@@ -39,7 +37,6 @@ class IconGenerator {
         const gradient = ctx.createLinearGradient(0, 0, size, size);
         gradient.addColorStop(0, '#2563eb');
         gradient.addColorStop(1, '#667eea');
-        
         ctx.fillStyle = gradient;
         ctx.roundRect(0, 0, size, size, 20);
         ctx.fill();
@@ -60,7 +57,6 @@ class IconGenerator {
         ctx.beginPath();
         ctx.arc(size*0.3, size*0.7, size*0.05, 0, 2 * Math.PI);
         ctx.fill();
-        
         ctx.beginPath();
         ctx.arc(size*0.7, size*0.7, size*0.05, 0, 2 * Math.PI);
         ctx.fill();
@@ -79,26 +75,54 @@ class IconGenerator {
  */
 class OCREnhancer {
     static preprocessImage(canvas, ctx, video) {
-        // Aplicar filtros de mejora para OCR
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // 1. Convertir a escala de grises con énfasis en contraste
+        // 1. Convertir a escala de grises
         for (let i = 0; i < data.length; i += 4) {
             const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-            data[i] = gray;     // R
-            data[i + 1] = gray; // G
-            data[i + 2] = gray; // B
+            data[i] = gray;
+            data[i + 1] = gray;
+            data[i + 2] = gray;
         }
 
-        // 2. Aplicar threshold adaptativo
+        // 2. Aplicar detección de bordes (Sobel)
+        this.applySobelEdgeDetection(data, canvas.width, canvas.height);
+
+        // 3. Aplicar threshold adaptativo
         this.applyAdaptiveThreshold(data, canvas.width, canvas.height);
 
-        // 3. Noise reduction
+        // 4. Noise reduction
         this.reduceNoise(data, canvas.width, canvas.height);
 
         ctx.putImageData(imageData, 0, 0);
         return canvas;
+    }
+
+    static applySobelEdgeDetection(data, width, height) {
+        const output = new Uint8ClampedArray(data.length);
+        const kernelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+        const kernelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                let sumX = 0, sumY = 0;
+                for (let ky = -1; ky <= 1; ky++) {
+                    for (let kx = -1; kx <= 1; kx++) {
+                        const idx = ((y + ky) * width + (x + kx)) * 4;
+                        const pixel = data[idx];
+                        const kIndex = (ky + 1) * 3 + (kx + 1);
+                        sumX += pixel * kernelX[kIndex];
+                        sumY += pixel * kernelY[kIndex];
+                    }
+                }
+                const idx = (y * width + x) * 4;
+                const magnitude = Math.sqrt(sumX * sumX + sumY * sumY);
+                output[idx] = output[idx + 1] = output[idx + 2] = Math.min(255, magnitude);
+                output[idx + 3] = data[idx + 3];
+            }
+        }
+        data.set(output);
     }
 
     static applyAdaptiveThreshold(data, width, height) {
@@ -112,46 +136,35 @@ class OCREnhancer {
     }
 
     static reduceNoise(data, width, height) {
-        // Implementación simple de filtro de mediana
         const newData = new Uint8ClampedArray(data);
-        
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const idx = (y * width + x) * 4;
                 const neighbors = [];
-                
                 for (let dy = -1; dy <= 1; dy++) {
                     for (let dx = -1; dx <= 1; dx++) {
                         const nIdx = ((y + dy) * width + (x + dx)) * 4;
                         neighbors.push(data[nIdx]);
                     }
                 }
-                
                 neighbors.sort((a, b) => a - b);
-                const median = neighbors[4]; // Elemento central
-                
+                const median = neighbors[4];
                 newData[idx] = median;
                 newData[idx + 1] = median;
                 newData[idx + 2] = median;
             }
         }
-        
         data.set(newData);
     }
 
     static enhanceForPlates(imageData) {
-        // Mejoras específicas para placas patentes
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = imageData.width;
         canvas.height = imageData.height;
-        
         ctx.putImageData(imageData, 0, 0);
-        
-        // Aumentar contraste
         ctx.filter = 'contrast(150%) brightness(110%)';
         ctx.drawImage(canvas, 0, 0);
-        
         return ctx.getImageData(0, 0, canvas.width, canvas.height);
     }
 }
@@ -165,6 +178,7 @@ class ChileanPlateValidator {
         /^[A-Z]{2}[0-9]{4}$/,  // LL0000 (formato antiguo)
         /^[A-Z]{3}[0-9]{3}$/,  // LLL000 (especiales)
         /^[A-Z]{2}[0-9]{2}[A-Z]{2}$/, // LL00LL (diplomáticos)
+        /^[A-Z]{2}[0-9]{3}[A-Z]$/ // LL000L (motos)
     ];
 
     static forbiddenCombinations = [
@@ -172,58 +186,37 @@ class ChileanPlateValidator {
     ];
 
     static isValid(plateText) {
-        if (!plateText || plateText.length < 5 || plateText.length > 6) {
+        if (!plateText || plateText.length < 5 || plateText.length > 7) {
             return false;
         }
-
-        // Verificar patrones
         const matchesPattern = this.patterns.some(pattern => pattern.test(plateText));
         if (!matchesPattern) return false;
-
-        // Verificar combinaciones prohibidas
         const hasForbidden = this.forbiddenCombinations.some(forbidden => 
             plateText.includes(forbidden)
         );
         if (hasForbidden) return false;
-
-        // Validaciones adicionales específicas
         return this.validateSpecificRules(plateText);
     }
 
     static validateSpecificRules(plate) {
-        // Reglas específicas para placas chilenas
-        
-        // No puede empezar con números
         if (/^[0-9]/.test(plate)) return false;
-        
-        // No puede tener más de 3 letras consecutivas iguales
         if (/([A-Z])\1{3,}/.test(plate)) return false;
-        
-        // No puede tener más de 3 números consecutivos iguales
         if (/([0-9])\1{3,}/.test(plate)) return false;
-        
         return true;
     }
 
     static calculateConfidence(detectedText, ocrConfidence) {
         let confidence = ocrConfidence;
-        
-        // Penalizar si no cumple formato exacto
         if (!this.isValid(detectedText)) {
             confidence *= 0.5;
         }
-        
-        // Bonificar si tiene formato común
-        if (/^[A-Z]{4}[0-9]{2}$/.test(detectedText)) {
+        if (/^[A-Z]{4}[0-9]{2}$|^[A-Z]{2}[0-9]{3}[A-Z]$/.test(detectedText)) {
             confidence *= 1.1;
         }
-        
-        // Penalizar caracteres ambiguos comunes
         const ambiguousChars = detectedText.match(/[0O1I]/g);
         if (ambiguousChars) {
             confidence *= Math.pow(0.9, ambiguousChars.length);
         }
-        
         return Math.min(100, Math.max(0, confidence));
     }
 }
@@ -253,8 +246,6 @@ class PerformanceTracker {
         const duration = endTime - startTime;
         this.metrics.ocrProcessingTimes.push(duration);
         this.metrics.detectionAccuracy.push(success ? 1 : 0);
-        
-        // Mantener solo los últimos 10 registros
         if (this.metrics.ocrProcessingTimes.length > 10) {
             this.metrics.ocrProcessingTimes.shift();
             this.metrics.detectionAccuracy.shift();
@@ -347,14 +338,10 @@ class DetectionHistory {
                 timestamp,
                 consulted: false
             };
-
             history.unshift(newEntry);
-            
-            // Limitar el número de entradas
             if (history.length > this.maxItems) {
                 history.splice(this.maxItems);
             }
-
             localStorage.setItem('plateDetectorHistory', JSON.stringify(history));
             return newEntry;
         } catch {
@@ -399,7 +386,6 @@ class DetectionHistory {
         const history = this.getAll();
         const dataStr = JSON.stringify(history, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        
         const link = document.createElement('a');
         link.href = URL.createObjectURL(dataBlob);
         link.download = `historial-patentes-${new Date().toISOString().split('T')[0]}.json`;
@@ -416,8 +402,6 @@ class CameraUtils {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-            // Buscar cámara trasera preferentemente
             const backCamera = videoDevices.find(device => 
                 device.label.toLowerCase().includes('back') ||
                 device.label.toLowerCase().includes('rear') ||
@@ -435,7 +419,7 @@ class CameraUtils {
                 }
             };
         } catch (error) {
-            // Fallback a configuración básica
+            ErrorLogger.error('Error al obtener dispositivos de cámara', error);
             return {
                 video: {
                     facingMode: 'environment',
@@ -450,24 +434,15 @@ class CameraUtils {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            
             if (videoDevices.length < 2) {
                 throw new Error('Solo hay una cámara disponible');
             }
-
-            // Obtener el dispositivo actual
             const currentTrack = currentStream.getVideoTracks()[0];
             const currentDeviceId = currentTrack.getSettings().deviceId;
-            
-            // Encontrar la siguiente cámara
             const currentIndex = videoDevices.findIndex(device => device.deviceId === currentDeviceId);
             const nextIndex = (currentIndex + 1) % videoDevices.length;
             const nextDevice = videoDevices[nextIndex];
-
-            // Detener stream actual
             currentStream.getTracks().forEach(track => track.stop());
-
-            // Iniciar nuevo stream
             const newStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     deviceId: { exact: nextDevice.deviceId },
@@ -475,29 +450,22 @@ class CameraUtils {
                     height: { ideal: 720 }
                 }
             });
-
             return newStream;
         } catch (error) {
+            ErrorLogger.error('Error al cambiar cámara', error);
             throw new Error(`Error al cambiar cámara: ${error.message}`);
         }
     }
 
     static captureHighQualityFrame(video, targetWidth = 1920) {
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Calcular dimensiones manteniendo aspect ratio
+        const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
         const aspectRatio = video.videoWidth / video.videoHeight;
         canvas.width = targetWidth;
         canvas.height = targetWidth / aspectRatio;
-        
-        // Configurar contexto para máxima calidad
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        
-        // Dibujar frame
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
         return canvas;
     }
 }
@@ -546,7 +514,6 @@ class SoundFeedback {
     };
 
     static init() {
-        // Crear sonidos sintéticos usando Web Audio API
         if ('AudioContext' in window || 'webkitAudioContext' in window) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
@@ -555,14 +522,22 @@ class SoundFeedback {
     }
 
     static createSounds() {
-        // Sonido de captura (click)
-        this.sounds.capture = this.playTone(1000, 50);
-        
-        // Sonido de éxito (ding)
-        this.sounds.success = this.playTone(800, 200, 'sine');
-        
-        // Sonido de error (buzz)
-        this.sounds.error = this.playTone(300, 500, 'square');
+        this.sounds.capture = () => this.playTone(1000, 50);
+        this.sounds.success = () => this.playTone(800, 200, 'sine');
+        this.sounds.error = () => this.playTone(300, 500, 'square');
+    }
+
+    static playTone(frequency, duration, type = 'sine') {
+        if (!this.audioContext) return;
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        oscillator.type = type;
+        oscillator.frequency.value = frequency;
+        gainNode.gain.value = 0.1;
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        oscillator.start();
+        oscillator.stop(this.audioContext.currentTime + duration / 1000);
     }
 
     static capture() {
@@ -575,23 +550,6 @@ class SoundFeedback {
 
     static error() {
         this.play('error');
-    }
-
-    static playTone(frequency, duration, type = 'sine') {
-        if (!this.audioContext) return;
-
-        const oscillator = this.audioContext.createOscillator();
-        const gainNode = this.audioContext.createGain();
-
-        oscillator.type = type;
-        oscillator.frequency.value = frequency;
-        gainNode.gain.value = 0.1; // Volumen más bajo
-
-        oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
-
-        oscillator.start();
-        oscillator.stop(this.audioContext.currentTime + duration / 1000);
     }
 
     static play(soundName) {
@@ -613,7 +571,6 @@ class ConnectivityManager {
     static addConnectivityListeners(onOnline, onOffline) {
         window.addEventListener('online', onOnline);
         window.addEventListener('offline', onOffline);
-        
         return () => {
             window.removeEventListener('online', onOnline);
             window.removeEventListener('offline', onOffline);
@@ -624,13 +581,11 @@ class ConnectivityManager {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
-            
             const response = await fetch(url, {
                 method: 'HEAD',
                 mode: 'no-cors',
                 signal: controller.signal
             });
-            
             clearTimeout(timeoutId);
             return true;
         } catch {
@@ -658,6 +613,8 @@ class ConnectivityManager {
 class LocalizationManager {
     static strings = {
         es: {
+            title: '🚗 Detector de Patentes',
+            instructions: 'Apunta la cámara hacia la placa del vehículo',
             cameraStart: 'Iniciar Cámara',
             cameraStop: 'Detener Cámara',
             capture: 'Capturar',
@@ -676,6 +633,8 @@ class LocalizationManager {
             offline: 'Modo offline'
         },
         en: {
+            title: '🚗 License Plate Detector',
+            instructions: 'Point the camera at the vehicle’s license plate',
             cameraStart: 'Start Camera',
             cameraStop: 'Stop Camera',
             capture: 'Capture',
@@ -721,15 +680,10 @@ class LocalizationManager {
     }
 
     static detectLanguage() {
-        // 1. Check for saved language preference
         const savedLang = localStorage.getItem('userLanguage');
         if (savedLang) return savedLang;
-        
-        // 2. Check browser language
         const browserLang = navigator.language.split('-')[0];
         if (this.strings[browserLang]) return browserLang;
-        
-        // 3. Default to Spanish
         return 'es';
     }
 }
@@ -751,17 +705,11 @@ class ErrorLogger {
             userAgent: navigator.userAgent,
             url: window.location.href
         };
-
         this.logs.unshift(logEntry);
-        
         if (this.logs.length > this.maxLogs) {
             this.logs.pop();
         }
-
-        // Console output
         console[level](message, data);
-
-        // Guardar en localStorage para debugging
         try {
             localStorage.setItem('plateDetectorLogs', JSON.stringify(this.logs.slice(0, 20)));
         } catch {
@@ -808,21 +756,15 @@ class ErrorLogger {
         URL.revokeObjectURL(link.href);
     }
 }
-        
+
 // Inicializar utilidades cuando se carga el DOM
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar sonidos
     SoundFeedback.init();
-    
-    // Detectar y configurar idioma
     const detectedLang = LocalizationManager.detectLanguage();
     LocalizationManager.setLanguage(detectedLang);
-    
-    // Configurar logging global de errores
     window.addEventListener('error', (event) => {
         ErrorLogger.error('Global error', event.error);
     });
-    
     window.addEventListener('unhandledrejection', (event) => {
         ErrorLogger.error('Unhandled promise rejection', event.reason);
     });

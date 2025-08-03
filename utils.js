@@ -1,4 +1,4 @@
-// utils.js - Utilidades avanzadas para la PWA Detector de Patentes
+// utils.js - Utilidades avanzadas para la PWA Detector de Patentes Chile
 
 /**
  * Generador de iconos dinámicos para PWA
@@ -8,65 +8,102 @@ class IconGenerator {
         const svg = `
             <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <linearGradient id="grad${size}" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
                         <stop offset="100%" style="stop-color:#667eea;stop-opacity:1" />
                     </linearGradient>
+                    <filter id="shadow${size}">
+                        <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+                    </filter>
                 </defs>
-                <rect width="${size}" height="${size}" rx="20" fill="url(#grad)"/>
-                <rect x="${size*0.2}" y="${size*0.3}" width="${size*0.6}" height="${size*0.15}" 
-                      rx="8" fill="white" opacity="0.9"/>
-                <text x="${size/2}" y="${size*0.42}" text-anchor="middle" 
-                      fill="#333" font-size="${size*0.08}" font-weight="bold">CHILE</text>
-                <circle cx="${size*0.3}" cy="${size*0.7}" r="${size*0.05}" fill="white" opacity="0.8"/>
-                <circle cx="${size*0.7}" cy="${size*0.7}" r="${size*0.05}" fill="white" opacity="0.8"/>
-                <rect x="${size*0.25}" y="${size*0.65}" width="${size*0.5}" height="${size*0.1}" 
-                      rx="4" fill="white" opacity="0.6"/>
+                <rect width="${size}" height="${size}" rx="${size * 0.1}" fill="url(#grad${size})" filter="url(#shadow${size})"/>
+                <rect x="${size*0.15}" y="${size*0.25}" width="${size*0.7}" height="${size*0.18}" 
+                      rx="${size*0.02}" fill="white" opacity="0.95"/>
+                <text x="${size/2}" y="${size*0.36}" text-anchor="middle" 
+                      fill="#333" font-size="${size*0.06}" font-weight="bold" font-family="Arial, sans-serif">CHILE</text>
+                <circle cx="${size*0.25}" cy="${size*0.65}" r="${size*0.04}" fill="white" opacity="0.9"/>
+                <circle cx="${size*0.75}" cy="${size*0.65}" r="${size*0.04}" fill="white" opacity="0.9"/>
+                <rect x="${size*0.2}" y="${size*0.6}" width="${size*0.6}" height="${size*0.1}" 
+                      rx="${size*0.01}" fill="white" opacity="0.7"/>
+                <text x="${size/2}" y="${size*0.85}" text-anchor="middle" 
+                      fill="white" font-size="${size*0.04}" font-weight="bold" opacity="0.8">OCR</text>
             </svg>
         `;
         return `data:image/svg+xml;base64,${btoa(svg)}`;
     }
 
     static async generateIconFile(size = 192) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = size;
-        canvas.height = size;
+        return new Promise((resolve, reject) => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = size;
+                canvas.height = size;
 
-        // Fondo con gradiente
-        const gradient = ctx.createLinearGradient(0, 0, size, size);
-        gradient.addColorStop(0, '#2563eb');
-        gradient.addColorStop(1, '#667eea');
-        ctx.fillStyle = gradient;
-        ctx.roundRect(0, 0, size, size, 20);
-        ctx.fill();
+                // Enable antialiasing
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
 
-        // Placa
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.roundRect(size*0.2, size*0.3, size*0.6, size*0.15, 8);
-        ctx.fill();
+                // Background with gradient
+                const gradient = ctx.createLinearGradient(0, 0, size, size);
+                gradient.addColorStop(0, '#2563eb');
+                gradient.addColorStop(1, '#667eea');
+                ctx.fillStyle = gradient;
+                
+                // Rounded rectangle
+                ctx.beginPath();
+                ctx.roundRect(0, 0, size, size, size * 0.1);
+                ctx.fill();
 
-        // Texto CHILE
-        ctx.fillStyle = '#333';
-        ctx.font = `bold ${size*0.08}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('CHILE', size/2, size*0.42);
+                // License plate background
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.beginPath();
+                ctx.roundRect(size*0.15, size*0.25, size*0.7, size*0.18, size*0.02);
+                ctx.fill();
 
-        // Ruedas
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
-        ctx.arc(size*0.3, size*0.7, size*0.05, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(size*0.7, size*0.7, size*0.05, 0, 2 * Math.PI);
-        ctx.fill();
+                // CHILE text
+                ctx.fillStyle = '#333';
+                ctx.font = `bold ${size*0.06}px Arial, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('CHILE', size/2, size*0.34);
 
-        // Chasis
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.roundRect(size*0.25, size*0.65, size*0.5, size*0.1, 4);
-        ctx.fill();
+                // Wheels
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.beginPath();
+                ctx.arc(size*0.25, size*0.65, size*0.04, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(size*0.75, size*0.65, size*0.04, 0, 2 * Math.PI);
+                ctx.fill();
 
-        return canvas.toDataURL('image/png');
+                // Car body
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.beginPath();
+                ctx.roundRect(size*0.2, size*0.6, size*0.6, size*0.1, size*0.01);
+                ctx.fill();
+
+                // OCR text
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = `bold ${size*0.04}px Arial, sans-serif`;
+                ctx.fillText('OCR', size/2, size*0.85);
+
+                // Convert to data URL
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    } else {
+                        reject(new Error('Failed to create blob'));
+                    }
+                }, 'image/png', 0.9);
+
+            } catch (error) {
+                reject(error);
+            }
+        });
     }
 }
 
@@ -78,25 +115,94 @@ class OCREnhancer {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // 1. Convertir a escala de grises
-        for (let i = 0; i < data.length; i += 4) {
-            const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-            data[i] = gray;
-            data[i + 1] = gray;
-            data[i + 2] = gray;
-        }
+        // 1. Convertir a escala de grises con mejor algoritmo
+        this.convertToGrayscale(data);
 
-        // 2. Aplicar detección de bordes (Sobel)
+        // 2. Aplicar filtro de contraste adaptativo
+        this.applyAdaptiveContrast(data, canvas.width, canvas.height);
+
+        // 3. Aplicar detección de bordes (Sobel mejorado)
         this.applySobelEdgeDetection(data, canvas.width, canvas.height);
 
-        // 3. Aplicar threshold adaptativo
+        // 4. Aplicar threshold adaptativo
         this.applyAdaptiveThreshold(data, canvas.width, canvas.height);
 
-        // 4. Noise reduction
+        // 5. Noise reduction con median filter
         this.reduceNoise(data, canvas.width, canvas.height);
 
         ctx.putImageData(imageData, 0, 0);
         return canvas;
+    }
+
+    static convertToGrayscale(data) {
+        for (let i = 0; i < data.length; i += 4) {
+            // Use luminance formula for better grayscale conversion
+            const gray = Math.round(
+                data[i] * 0.299 +     // Red
+                data[i + 1] * 0.587 + // Green  
+                data[i + 2] * 0.114   // Blue
+            );
+            data[i] = gray;
+            data[i + 1] = gray;
+            data[i + 2] = gray;
+        }
+    }
+
+    static applyAdaptiveContrast(data, width, height) {
+        const blockSize = 32;
+        const C = 10;
+        
+        for (let y = 0; y < height; y += blockSize) {
+            for (let x = 0; x < width; x += blockSize) {
+                const blockData = this.getBlock(data, x, y, blockSize, width, height);
+                const mean = this.getMean(blockData);
+                const std = this.getStandardDeviation(blockData, mean);
+                
+                if (std > C) {
+                    this.enhanceBlock(data, x, y, blockSize, width, height, mean, std);
+                }
+            }
+        }
+    }
+
+    static getBlock(data, startX, startY, blockSize, width, height) {
+        const block = [];
+        const endX = Math.min(startX + blockSize, width);
+        const endY = Math.min(startY + blockSize, height);
+        
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                const idx = (y * width + x) * 4;
+                block.push(data[idx]);
+            }
+        }
+        return block;
+    }
+
+    static getMean(values) {
+        return values.reduce((sum, val) => sum + val, 0) / values.length;
+    }
+
+    static getStandardDeviation(values, mean) {
+        const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+        return Math.sqrt(variance);
+    }
+
+    static enhanceBlock(data, startX, startY, blockSize, width, height, mean, std) {
+        const endX = Math.min(startX + blockSize, width);
+        const endY = Math.min(startY + blockSize, height);
+        const factor = 1.5;
+        
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                const idx = (y * width + x) * 4;
+                const newValue = Math.round(mean + factor * (data[idx] - mean));
+                const clampedValue = Math.max(0, Math.min(255, newValue));
+                data[idx] = clampedValue;
+                data[idx + 1] = clampedValue;
+                data[idx + 2] = clampedValue;
+            }
+        }
     }
 
     static applySobelEdgeDetection(data, width, height) {
@@ -107,6 +213,7 @@ class OCREnhancer {
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 let sumX = 0, sumY = 0;
+                
                 for (let ky = -1; ky <= 1; ky++) {
                     for (let kx = -1; kx <= 1; kx++) {
                         const idx = ((y + ky) * width + (x + kx)) * 4;
@@ -116,44 +223,85 @@ class OCREnhancer {
                         sumY += pixel * kernelY[kIndex];
                     }
                 }
+                
                 const idx = (y * width + x) * 4;
                 const magnitude = Math.sqrt(sumX * sumX + sumY * sumY);
-                output[idx] = output[idx + 1] = output[idx + 2] = Math.min(255, magnitude);
+                const value = Math.min(255, Math.max(0, magnitude));
+                
+                output[idx] = value;
+                output[idx + 1] = value;
+                output[idx + 2] = value;
                 output[idx + 3] = data[idx + 3];
             }
         }
+        
+        // Copy border pixels
+        for (let i = 0; i < data.length; i += 4) {
+            const x = (i / 4) % width;
+            const y = Math.floor((i / 4) / width);
+            
+            if (x === 0 || x === width - 1 || y === 0 || y === height - 1) {
+                output[i] = data[i];
+                output[i + 1] = data[i + 1];
+                output[i + 2] = data[i + 2];
+                output[i + 3] = data[i + 3];
+            }
+        }
+        
         data.set(output);
     }
 
     static applyAdaptiveThreshold(data, width, height) {
-        const threshold = 128;
-        for (let i = 0; i < data.length; i += 4) {
-            const value = data[i] > threshold ? 255 : 0;
-            data[i] = value;
-            data[i + 1] = value;
-            data[i + 2] = value;
+        const blockSize = 16;
+        const C = 15;
+        
+        for (let y = 0; y < height; y += blockSize) {
+            for (let x = 0; x < width; x += blockSize) {
+                const blockData = this.getBlock(data, x, y, blockSize, width, height);
+                const threshold = this.getMean(blockData) - C;
+                
+                const endX = Math.min(x + blockSize, width);
+                const endY = Math.min(y + blockSize, height);
+                
+                for (let by = y; by < endY; by++) {
+                    for (let bx = x; bx < endX; bx++) {
+                        const idx = (by * width + bx) * 4;
+                        const value = data[idx] > threshold ? 255 : 0;
+                        data[idx] = value;
+                        data[idx + 1] = value;
+                        data[idx + 2] = value;
+                    }
+                }
+            }
         }
     }
 
     static reduceNoise(data, width, height) {
         const newData = new Uint8ClampedArray(data);
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
-                const idx = (y * width + x) * 4;
+        const kernelSize = 3;
+        const offset = Math.floor(kernelSize / 2);
+        
+        for (let y = offset; y < height - offset; y++) {
+            for (let x = offset; x < width - offset; x++) {
                 const neighbors = [];
-                for (let dy = -1; dy <= 1; dy++) {
-                    for (let dx = -1; dx <= 1; dx++) {
+                
+                for (let dy = -offset; dy <= offset; dy++) {
+                    for (let dx = -offset; dx <= offset; dx++) {
                         const nIdx = ((y + dy) * width + (x + dx)) * 4;
                         neighbors.push(data[nIdx]);
                     }
                 }
+                
                 neighbors.sort((a, b) => a - b);
-                const median = neighbors[4];
+                const median = neighbors[Math.floor(neighbors.length / 2)];
+                
+                const idx = (y * width + x) * 4;
                 newData[idx] = median;
                 newData[idx + 1] = median;
                 newData[idx + 2] = median;
             }
         }
+        
         data.set(newData);
     }
 
@@ -162,9 +310,13 @@ class OCREnhancer {
         const ctx = canvas.getContext('2d');
         canvas.width = imageData.width;
         canvas.height = imageData.height;
+        
         ctx.putImageData(imageData, 0, 0);
-        ctx.filter = 'contrast(150%) brightness(110%)';
+        
+        // Apply filters for better text recognition
+        ctx.filter = 'contrast(150%) brightness(110%) saturate(0%)';
         ctx.drawImage(canvas, 0, 0);
+        
         return ctx.getImageData(0, 0, canvas.width, canvas.height);
     }
 }
@@ -174,614 +326,117 @@ class OCREnhancer {
  */
 class ChileanPlateValidator {
     static patterns = [
-        /^[A-Z]{4}[0-9]{2}$/,  // LLLL00 (nuevo formato)
-        /^[A-Z]{2}[0-9]{4}$/,  // LL0000 (formato antiguo)
-        /^[A-Z]{3}[0-9]{3}$/,  // LLL000 (especiales)
-        /^[A-Z]{2}[0-9]{2}[A-Z]{2}$/, // LL00LL (diplomáticos)
-        /^[A-Z]{2}[0-9]{3}[A-Z]$/ // LL000L (motos)
+        { regex: /^[A-Z]{4}[0-9]{2}$/, type: 'new', weight: 1.0 },      // LLLL00 (nuevo formato)
+        { regex: /^[A-Z]{2}[0-9]{4}$/, type: 'old', weight: 0.9 },      // LL0000 (formato antiguo)
+        { regex: /^[A-Z]{3}[0-9]{3}$/, type: 'special', weight: 0.8 },  // LLL000 (especiales)
+        { regex: /^[A-Z]{2}[0-9]{2}[A-Z]{2}$/, type: 'diplomatic', weight: 0.7 }, // LL00LL (diplomáticos)
+        { regex: /^[A-Z]{2}[0-9]{3}[A-Z]$/, type: 'motorcycle', weight: 0.8 }     // LL000L (motos)
     ];
 
     static forbiddenCombinations = [
-        'SEX', 'GAY', 'ASS', 'FUK', 'SHT', 'DMN', 'HLL'
+        'SEX', 'GAY', 'ASS', 'FUK', 'SHT', 'DMN', 'HLL', 'DIE', 'KIL'
     ];
+
+    static commonMistakes = {
+        '0': ['O', 'Q', 'D'],
+        'O': ['0', 'Q', 'D'],
+        '1': ['I', 'L', 'T'],
+        'I': ['1', 'L', 'T'],
+        '5': ['S'],
+        'S': ['5'],
+        '8': ['B'],
+        'B': ['8'],
+        '2': ['Z'],
+        'Z': ['2'],
+        '6': ['G'],
+        'G': ['6']
+    };
 
     static isValid(plateText) {
         if (!plateText || plateText.length < 5 || plateText.length > 7) {
             return false;
         }
-        const matchesPattern = this.patterns.some(pattern => pattern.test(plateText));
+
+        // Check against patterns
+        const matchesPattern = this.patterns.some(pattern => pattern.regex.test(plateText));
         if (!matchesPattern) return false;
+
+        // Check forbidden combinations
         const hasForbidden = this.forbiddenCombinations.some(forbidden => 
             plateText.includes(forbidden)
         );
         if (hasForbidden) return false;
+
+        // Apply specific validation rules
         return this.validateSpecificRules(plateText);
     }
 
     static validateSpecificRules(plate) {
+        // No puede empezar con número
         if (/^[0-9]/.test(plate)) return false;
-        if (/([A-Z])\1{3,}/.test(plate)) return false;
-        if (/([0-9])\1{3,}/.test(plate)) return false;
+        
+        // No más de 3 caracteres repetidos consecutivos
+        if (/([A-Z])\1{3,}/i.test(plate)) return false;
+        
+        // Validar formato según patrones de placas chilenas
+        const platePatterns = [
+            /^[A-Z]{4}\d{2}$/,       // Formato nuevo: LLLLNN
+            /^[A-Z]{2}\d{4}$/,       // Formato antiguo: LLNNNN
+            /^[A-Z]{3}\d{3}$/,       // Formato especial: LLLNNN
+            /^[A-Z]{2}\d{2}[A-Z]{2}$/, // Formato diplomático: LLNNLL
+            /^[A-Z]{2}\d{3}[A-Z]$/   // Formato motos: LLNNNL
+        ];
+        
+        // Verificar si la placa coincide con algún patrón válido
+        if (!platePatterns.some(pattern => pattern.test(plate))) {
+            return false;
+        }
+        
+        // Validar combinaciones prohibidas
+        const forbiddenCombinations = ['SEX', 'GAY', 'ASS', 'FUK', 'SHT', 'DMN', 'HLL', 'KKK', 'XXX', 'SSS'];
+        const upperPlate = plate.toUpperCase();
+        if (forbiddenCombinations.some(combo => upperPlate.includes(combo))) {
+            return false;
+        }
+        
+        // Validar dígito verificador para formato nuevo (si aplica)
+        if (/^[A-Z]{4}\d{2}$/.test(plate)) {
+            return this.validateCheckDigit(plate);
+        }
+        
         return true;
     }
-
-    static calculateConfidence(detectedText, ocrConfidence) {
-        let confidence = ocrConfidence;
-        if (!this.isValid(detectedText)) {
-            confidence *= 0.5;
-        }
-        if (/^[A-Z]{4}[0-9]{2}$|^[A-Z]{2}[0-9]{3}[A-Z]$/.test(detectedText)) {
-            confidence *= 1.1;
-        }
-        const ambiguousChars = detectedText.match(/[0O1I]/g);
-        if (ambiguousChars) {
-            confidence *= Math.pow(0.9, ambiguousChars.length);
-        }
-        return Math.min(100, Math.max(0, confidence));
-    }
-}
-
-/**
- * Gestor de performance y analytics
- */
-class PerformanceTracker {
-    static metrics = {
-        cameraStartTime: 0,
-        ocrProcessingTimes: [],
-        detectionAccuracy: [],
-        batteryImpact: []
-    };
-
-    static startCameraTimer() {
-        this.metrics.cameraStartTime = performance.now();
-    }
-
-    static endCameraTimer() {
-        const duration = performance.now() - this.metrics.cameraStartTime;
-        console.log(`Cámara iniciada en ${duration.toFixed(2)}ms`);
-        return duration;
-    }
-
-    static trackOCRPerformance(startTime, endTime, success) {
-        const duration = endTime - startTime;
-        this.metrics.ocrProcessingTimes.push(duration);
-        this.metrics.detectionAccuracy.push(success ? 1 : 0);
-        if (this.metrics.ocrProcessingTimes.length > 10) {
-            this.metrics.ocrProcessingTimes.shift();
-            this.metrics.detectionAccuracy.shift();
-        }
-    }
-
-    static getAverageOCRTime() {
-        const times = this.metrics.ocrProcessingTimes;
-        return times.length > 0 ? 
-            times.reduce((a, b) => a + b, 0) / times.length : 0;
-    }
-
-    static getAccuracyRate() {
-        const accuracy = this.metrics.detectionAccuracy;
-        return accuracy.length > 0 ? 
-            accuracy.reduce((a, b) => a + b, 0) / accuracy.length * 100 : 0;
-    }
-
-    static async trackBatteryImpact() {
-        try {
-            if ('getBattery' in navigator) {
-                const battery = await navigator.getBattery();
-                this.metrics.batteryImpact.push({
-                    level: battery.level,
-                    charging: battery.charging,
-                    timestamp: Date.now()
-                });
-            }
-        } catch (error) {
-            console.log('Battery API no disponible');
-        }
-    }
-}
-
-/**
- * Gestor de configuración de usuario
- */
-class UserSettings {
-    static defaults = {
-        autoScanInterval: 2000,
-        ocrLanguage: 'spa',
-        cameraResolution: 'hd',
-        vibrationEnabled: true,
-        soundEnabled: false,
-        saveHistory: true,
-        maxHistoryItems: 50
-    };
-
-    static load() {
-        try {
-            const stored = localStorage.getItem('plateDetectorSettings');
-            return stored ? { ...this.defaults, ...JSON.parse(stored) } : this.defaults;
-        } catch {
-            return this.defaults;
-        }
-    }
-
-    static save(settings) {
-        try {
-            localStorage.setItem('plateDetectorSettings', JSON.stringify(settings));
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    static reset() {
-        try {
-            localStorage.removeItem('plateDetectorSettings');
-            return true;
-        } catch {
-            return false;
-        }
-    }
-}
-
-/**
- * Gestor de historial de detecciones
- */
-class DetectionHistory {
-    static maxItems = 50;
-
-    static add(plateText, confidence, timestamp = Date.now()) {
-        try {
-            const history = this.getAll();
-            const newEntry = {
-                id: Date.now().toString(),
-                plate: plateText,
-                confidence,
-                timestamp,
-                consulted: false
-            };
-            history.unshift(newEntry);
-            if (history.length > this.maxItems) {
-                history.splice(this.maxItems);
-            }
-            localStorage.setItem('plateDetectorHistory', JSON.stringify(history));
-            return newEntry;
-        } catch {
-            return null;
-        }
-    }
-
-    static getAll() {
-        try {
-            const stored = localStorage.getItem('plateDetectorHistory');
-            return stored ? JSON.parse(stored) : [];
-        } catch {
-            return [];
-        }
-    }
-
-    static markAsConsulted(id) {
-        try {
-            const history = this.getAll();
-            const entry = history.find(item => item.id === id);
-            if (entry) {
-                entry.consulted = true;
-                localStorage.setItem('plateDetectorHistory', JSON.stringify(history));
-                return true;
-            }
-            return false;
-        } catch {
-            return false;
-        }
-    }
-
-    static clear() {
-        try {
-            localStorage.removeItem('plateDetectorHistory');
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    static export() {
-        const history = this.getAll();
-        const dataStr = JSON.stringify(history, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(dataBlob);
-        link.download = `historial-patentes-${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-    }
-}
-
-/**
- * Utilidades de cámara avanzadas
- */
-class CameraUtils {
-    static async getOptimalConstraints() {
-        try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            const backCamera = videoDevices.find(device => 
-                device.label.toLowerCase().includes('back') ||
-                device.label.toLowerCase().includes('rear') ||
-                device.label.toLowerCase().includes('environment')
-            );
-
-            return {
-                video: {
-                    deviceId: backCamera ? { exact: backCamera.deviceId } : undefined,
-                    facingMode: backCamera ? undefined : 'environment',
-                    width: { ideal: 1920, min: 1280 },
-                    height: { ideal: 1080, min: 720 },
-                    aspectRatio: { ideal: 16/9 },
-                    frameRate: { ideal: 30, min: 15 }
-                }
-            };
-        } catch (error) {
-            ErrorLogger.error('Error al obtener dispositivos de cámara', error);
-            return {
-                video: {
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            };
-        }
-    }
     
-    static async switchCamera(currentStream) {
-        try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            if (videoDevices.length < 2) {
-                throw new Error('Solo hay una cámara disponible');
-            }
-            const currentTrack = currentStream.getVideoTracks()[0];
-            const currentDeviceId = currentTrack.getSettings().deviceId;
-            const currentIndex = videoDevices.findIndex(device => device.deviceId === currentDeviceId);
-            const nextIndex = (currentIndex + 1) % videoDevices.length;
-            const nextDevice = videoDevices[nextIndex];
-            currentStream.getTracks().forEach(track => track.stop());
-            const newStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    deviceId: { exact: nextDevice.deviceId },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            });
-            return newStream;
-        } catch (error) {
-            ErrorLogger.error('Error al cambiar cámara', error);
-            throw new Error(`Error al cambiar cámara: ${error.message}`);
-        }
-    }
-
-    static captureHighQualityFrame(video, targetWidth = 1920) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
-        const aspectRatio = video.videoWidth / video.videoHeight;
-        canvas.width = targetWidth;
-        canvas.height = targetWidth / aspectRatio;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        return canvas;
-    }
-}
-
-/**
- * Utilidades de vibración y feedback háptico
- */
-class HapticFeedback {
-    static isSupported() {
-        return 'vibrate' in navigator;
-    }
-
-    static success() {
-        if (this.isSupported()) {
-            navigator.vibrate([100, 50, 100]);
-        }
-    }
-
-    static error() {
-        if (this.isSupported()) {
-            navigator.vibrate([200, 100, 200, 100, 200]);
-        }
-    }
-
-    static capture() {
-        if (this.isSupported()) {
-            navigator.vibrate(50);
-        }
-    }
-
-    static scanning() {
-        if (this.isSupported()) {
-            navigator.vibrate([100, 50, 100, 50, 100]);
-        }
-    }
-}
-
-/**
- * Utilidades de sonido
- */
-class SoundFeedback {
-    static sounds = {
-        capture: null,
-        success: null,
-        error: null
-    };
-
-    static init() {
-        if ('AudioContext' in window || 'webkitAudioContext' in window) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioContext();
-            this.createSounds();
-        }
-    }
-
-    static createSounds() {
-        this.sounds.capture = () => this.playTone(1000, 50);
-        this.sounds.success = () => this.playTone(800, 200, 'sine');
-        this.sounds.error = () => this.playTone(300, 500, 'square');
-    }
-
-    static playTone(frequency, duration, type = 'sine') {
-        if (!this.audioContext) return;
-        const oscillator = this.audioContext.createOscillator();
-        const gainNode = this.audioContext.createGain();
-        oscillator.type = type;
-        oscillator.frequency.value = frequency;
-        gainNode.gain.value = 0.1;
-        oscillator.connect(gainNode);
-        gainNode.connect(this.audioContext.destination);
-        oscillator.start();
-        oscillator.stop(this.audioContext.currentTime + duration / 1000);
-    }
-
-    static capture() {
-        this.play('capture');
-    }
-
-    static success() {
-        this.play('success');
-    }
-
-    static error() {
-        this.play('error');
-    }
-
-    static play(soundName) {
-        const settings = UserSettings.load();
-        if (settings.soundEnabled && this.sounds[soundName]) {
-            this.sounds[soundName]();
-        }
-    }
-}
-
-/**
- * Utilidades de conectividad y sincronización
- */
-class ConnectivityManager {
-    static isOnline() {
-        return navigator.onLine;
-    }
-    
-    static addConnectivityListeners(onOnline, onOffline) {
-        window.addEventListener('online', onOnline);
-        window.addEventListener('offline', onOffline);
-        return () => {
-            window.removeEventListener('online', onOnline);
-            window.removeEventListener('offline', onOffline);
-        };
-    }
-    
-    static async testConnection(url = 'https://www.google.com', timeout = 5000) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-            const response = await fetch(url, {
-                method: 'HEAD',
-                mode: 'no-cors',
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            return true;
-        } catch {
+    /**
+     * Valida el dígito verificador de una patente chilena en formato LLLLNN
+     * @param {string} plate - La patente a validar (ej: "ABCD12")
+     * @returns {boolean} true si la patente tiene un dígito verificador válido
+     */
+    static validateCheckDigit(plate) {
+        // Verificar que la patente tenga el formato correcto
+        if (!/^[A-Z]{4}\d{2}$/.test(plate)) {
             return false;
         }
-    }
+
+        const letterValues = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const weights = [3, 2, 4, 1, 5, 9, 8, 6, 7, 0];
         
-    static getConnectionInfo() {
-        if ('connection' in navigator) {
-            const conn = navigator.connection;
-            return {
-                effectiveType: conn.effectiveType,
-                downlink: conn.downlink,
-                rtt: conn.rtt,
-                saveData: conn.saveData
-            };
-        }
-        return null;
-    }
-}
-
-/**
- * Utilidades de localización y idioma
- */
-class LocalizationManager {
-    static strings = {
-        es: {
-            title: '🚗 Detector de Patentes',
-            instructions: 'Apunta la cámara hacia la placa del vehículo',
-            cameraStart: 'Iniciar Cámara',
-            cameraStop: 'Detener Cámara',
-            capture: 'Capturar',
-            autoScan: 'Escaneo Automático',
-            stopScan: 'Detener Escaneo',
-            consulting: 'Consultar en AutoSeguro',
-            plateDetected: 'Placa Detectada',
-            confidence: 'Confianza',
-            scanning: 'Escaneando...',
-            processing: 'Procesando...',
-            success: '¡Placa detectada correctamente!',
-            error: 'No se detectó una placa válida',
-            cameraError: 'Error al acceder a la cámara',
-            positionPlate: 'Posiciona la placa aquí',
-            noConnection: 'Sin conexión',
-            offline: 'Modo offline'
-        },
-        en: {
-            title: '🚗 License Plate Detector',
-            instructions: 'Point the camera at the vehicle’s license plate',
-            cameraStart: 'Start Camera',
-            cameraStop: 'Stop Camera',
-            capture: 'Capture',
-            autoScan: 'Auto Scan',
-            stopScan: 'Stop Scan',
-            consulting: 'Check AutoSeguro',
-            plateDetected: 'Plate Detected',
-            confidence: 'Confidence',
-            scanning: 'Scanning...',
-            processing: 'Processing...',
-            success: 'Plate detected successfully!',
-            error: 'No valid plate detected',
-            cameraError: 'Camera access error',
-            positionPlate: 'Position plate here',
-            noConnection: 'No connection',
-            offline: 'Offline mode'
-        }
-    };
-
-    static currentLanguage = 'es';
-
-    static setLanguage(lang) {
-        if (this.strings[lang]) {
-            this.currentLanguage = lang;
-            this.updateUI();
-            localStorage.setItem('userLanguage', lang);
-        }
-    }
-
-    static getString(key) {
-        return this.strings[this.currentLanguage][key] || key;
-    }
-
-    static updateUI() {
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-            const key = el.getAttribute('data-i18n');
-            if (el.placeholder) {
-                el.placeholder = this.getString(key);
-            } else {
-                el.textContent = this.getString(key);
-            }
+        // Convertir cada carácter a su valor numérico (0-35)
+        const values = Array.from(plate).map(char => {
+            const value = letterValues.indexOf(char);
+            return value === -1 ? 0 : value; // Si no se encuentra, usar 0 como valor por defecto
         });
-    }
-
-    static detectLanguage() {
-        const savedLang = localStorage.getItem('userLanguage');
-        if (savedLang) return savedLang;
-        const browserLang = navigator.language.split('-')[0];
-        if (this.strings[browserLang]) return browserLang;
-        return 'es';
-    }
-}
-
-/**
- * Gestor de errores y logging
- */
-class ErrorLogger {
-    static logs = [];
-    static maxLogs = 100;
-
-    static log(level, message, data = null) {
-        const timestamp = new Date().toISOString();
-        const logEntry = {
-            timestamp,
-            level,
-            message,
-            data,
-            userAgent: navigator.userAgent,
-            url: window.location.href
-        };
-        this.logs.unshift(logEntry);
-        if (this.logs.length > this.maxLogs) {
-            this.logs.pop();
+        
+        // Aplicar ponderación y calcular suma
+        let sum = 0;
+        for (let i = 0; i < values.length - 1; i++) {
+            sum += values[i] * weights[i % weights.length];
         }
-        console[level](message, data);
-        try {
-            localStorage.setItem('plateDetectorLogs', JSON.stringify(this.logs.slice(0, 20)));
-        } catch {
-            // Ignorar errores de storage
-        }
+        
+        // Calcular dígito verificador (11 - (suma % 11))
+        const calculatedCheckDigit = (11 - (sum % 11)) % 10;
+        const actualCheckDigit = parseInt(plate[5], 10);
+        
+        return calculatedCheckDigit === actualCheckDigit;
     }
-
-    static error(message, error = null) {
-        this.log('error', message, error ? {
-            name: error.name,
-            message: error.message,
-            stack: error.stack
-        } : null);
-    }
-
-    static warn(message, data = null) {
-        this.log('warn', message, data);
-    }
-
-    static info(message, data = null) {
-        this.log('info', message, data);
-    }
-
-    static getLogs() {
-        return [...this.logs];
-    }
-
-    static clearLogs() {
-        this.logs = [];
-        try {
-            localStorage.removeItem('plateDetectorLogs');
-        } catch {
-            // Ignorar errores
-        }
-    }
-
-    static exportLogs() {
-        const logsStr = JSON.stringify(this.logs, null, 2);
-        const blob = new Blob([logsStr], { type: 'application/json' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `plate-detector-logs-${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-    }
-}
-
-// Inicializar utilidades cuando se carga el DOM
-document.addEventListener('DOMContentLoaded', () => {
-    SoundFeedback.init();
-    const detectedLang = LocalizationManager.detectLanguage();
-    LocalizationManager.setLanguage(detectedLang);
-    window.addEventListener('error', (event) => {
-        ErrorLogger.error('Global error', event.error);
-    });
-    window.addEventListener('unhandledrejection', (event) => {
-        ErrorLogger.error('Unhandled promise rejection', event.reason);
-    });
-});
-
-// Exportar todas las clases para uso global
-if (typeof window !== 'undefined') {
-    window.IconGenerator = IconGenerator;
-    window.OCREnhancer = OCREnhancer;
-    window.ChileanPlateValidator = ChileanPlateValidator;
-    window.PerformanceTracker = PerformanceTracker;
-    window.UserSettings = UserSettings;
-    window.DetectionHistory = DetectionHistory;
-    window.CameraUtils = CameraUtils;
-    window.HapticFeedback = HapticFeedback;
-    window.SoundFeedback = SoundFeedback;
-    window.ConnectivityManager = ConnectivityManager;
-    window.LocalizationManager = LocalizationManager;
-    window.ErrorLogger = ErrorLogger;
 }

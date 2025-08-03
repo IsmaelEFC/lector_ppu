@@ -1,58 +1,26 @@
 {
   "name": "Detector de Patentes Chile",
   "short_name": "PatentesChile",
-  "description": "Aplicación para detectar placas patentes chilenas usando la cámara del móvil",
-  "start_url": "/",
+  "description": "Aplicación PWA para detectar placas patentes chilenas usando la cámara del móvil con OCR avanzado",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#667eea",
   "theme_color": "#2563eb",
-  "orientation": "portrait",
-  "scope": "/",
-  "lang": "es",
-  "categories": ["utilities", "productivity"],
+  "orientation": "portrait-primary",
+  "scope": "./",
+  "lang": "es-CL",
+  "dir": "ltr",
+  "categories": ["utilities", "productivity", "photo"],
+  "prefer_related_applications": false,
   "icons": [
-    {
-      "src": "icons/icon-72x72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icons/icon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icons/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icons/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icons/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
+
     {
       "src": "icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
-    {
-      "src": "icons/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
+
     {
       "src": "icons/icon-512x512.png",
       "sizes": "512x512",
@@ -64,28 +32,68 @@
     {
       "name": "Escanear Patente",
       "short_name": "Escanear",
-      "description": "Iniciar escaneo de placa patente",
-      "url": "/?action=scan",
+      "description": "Iniciar escaneo rápido de placa patente",
+      "url": "./?action=scan",
       "icons": [
         {
           "src": "icons/icon-192x192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Ver Historial",
+      "short_name": "Historial", 
+      "description": "Ver historial de detecciones",
+      "url": "./?action=history",
+      "icons": [
+        {
+          "src": "icons/icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }
   ],
   "screenshots": [
     {
-      "src": "screenshot1.png",
+      "src": "screenshots/mobile-1.png",
       "sizes": "320x640",
       "type": "image/png",
-      "form_factor": "narrow"
+      "form_factor": "narrow",
+      "label": "Pantalla principal de detección"
     },
     {
-      "src": "screenshot2.png",
-      "sizes": "640x320",
+      "src": "screenshots/desktop-1.png", 
+      "sizes": "1280x720",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "wide",
+      "label": "Vista de escritorio"
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "web",
+      "url": "https://www.autoseguro.gob.cl/"
+    }
+  ],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+platedetector",
+      "url": "./?plate=%s"
     }
   ]
 }

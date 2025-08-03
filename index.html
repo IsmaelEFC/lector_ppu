@@ -5,124 +5,556 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Aplicación para detectar placas patentes chilenas usando la cámara del móvil">
   <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Detector Patentes">
   <title>🚗 Detector de Patentes</title>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  
+  <!-- PWA Links -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
+  
   <style>
-    body {
-      font-family: Arial, sans-serif;
+    * {
+      box-sizing: border-box;
       margin: 0;
-      padding: 20px;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      margin: 0;
+      padding: 20px 10px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       display: flex;
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
+      overflow-x: hidden;
     }
-    video, canvas {
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .instructions {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 0 20px;
+      opacity: 0.9;
+      font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+    }
+
+    .camera-container {
+      position: relative;
       width: 100%;
       max-width: 640px;
-      border-radius: 10px;
       margin-bottom: 20px;
-      display: none;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
-    #video.active, #canvas.active {
+
+    video, canvas {
+      width: 100%;
+      height: auto;
+      display: none;
+      background: #000;
+    }
+
+    video.active, canvas.active {
       display: block;
     }
-    button {
-      background: #00ff88;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 25px;
-      font-size: 16px;
-      cursor: pointer;
-      margin: 10px;
+
+    .overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      height: 30%;
+      border: 3px solid rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      pointer-events: none;
+      background: rgba(0, 255, 136, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
       transition: all 0.3s ease;
     }
-    button:hover {
-      background: #00cc6a;
+
+    .overlay.scanning {
+      border-color: #00ff88;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { border-color: #00ff88; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+      50% { border-color: #00cc6a; box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
+      100% { border-color: #00ff88; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 0 10px;
+    }
+
+    button {
+      background: linear-gradient(45deg, #00ff88, #00cc6a);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: 120px;
+    }
+
+    button:hover:not(:disabled) {
+      background: linear-gradient(45deg, #00cc6a, #00aa55);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
     }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
     button:disabled {
-      background: #ccc;
+      background: linear-gradient(45deg, #999, #777);
       cursor: not-allowed;
+      box-shadow: none;
+      opacity: 0.6;
     }
-    #result, #confidence {
-      font-size: 18px;
+
+    .secondary-btn {
+      background: linear-gradient(45deg, #667eea, #764ba2) !important;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+    }
+
+    .secondary-btn:hover:not(:disabled) {
+      background: linear-gradient(45deg, #5a6fd8, #6a4190) !important;
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+    }
+
+    .results {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .result-item {
       margin: 10px 0;
+      font-size: 16px;
     }
-    #error {
-      color: #ff4444;
-      display: none;
+
+    .plate-text {
+      font-size: 24px;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 10px;
+      border-radius: 8px;
       margin: 10px 0;
+      letter-spacing: 2px;
     }
+
+    .confidence-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff4444, #ffaa00, #00ff88);
+      border-radius: 4px;
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
     #loading {
       display: none;
-      font-size: 16px;
-      margin: 10px 0;
+      text-align: center;
+      margin: 20px 0;
     }
+
     #loading.active {
       display: block;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 3px solid white;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #error {
+      color: #ff6b6b;
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 10px 0;
+      display: none;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    #error.active {
+      display: block;
+    }
+
+    .status-indicator {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    .status-online {
+      background: rgba(0, 255, 136, 0.9);
+      color: white;
+    }
+
+    .status-offline {
+      background: rgba(255, 68, 68, 0.9);
+      color: white;
+    }
+
+    .install-prompt {
+      background: rgba(255, 255, 255, 0.95);
+      color: #333;
+      padding: 20px;
+      border-radius: 15px;
+      margin: 20px 0;
+      text-align: center;
+      display: none;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    .install-prompt.show {
+      display: block;
+    }
+
+    .history-panel {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      margin-top: 20px;
+      width: 100%;
+      max-width: 500px;
+      display: none;
+    }
+
+    .history-panel.show {
+      display: block;
+    }
+
+    .history-item {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 25px;
+      z-index: 1000;
+      display: none;
+      font-weight: 500;
+    }
+
+    .toast.show {
+      display: block;
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+      to { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 15px 5px; }
+      .controls { gap: 8px; }
+      button { 
+        padding: 10px 16px; 
+        font-size: 13px; 
+        min-width: 100px;
+      }
+      .results { margin: 15px 5px; padding: 15px; }
+    }
+
+    /* Accessibility improvements */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* High contrast mode */
+    @media (prefers-contrast: high) {
+      .overlay {
+        border-width: 4px;
+        border-color: white;
+      }
+      
+      button {
+        border: 2px solid white;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="status-indicator" id="statusIndicator">🌐 En línea</div>
+  
   <h1 data-i18n="title">🚗 Detector de Patentes</h1>
-  <p data-i18n="instructions">Apunta la cámara hacia la placa del vehículo</p>
+  <p class="instructions" data-i18n="instructions">Apunta la cámara hacia la placa del vehículo</p>
 
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
+  <div class="camera-container">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div class="overlay" id="overlay" data-i18n="positionPlate">Posiciona la placa aquí</div>
+  </div>
 
-  <div>
+  <div class="controls">
     <button id="startCamera" data-i18n="cameraStart" aria-label="Iniciar cámara">📷 Iniciar Cámara</button>
     <button id="capture" data-i18n="capture" aria-label="Capturar imagen" disabled>📸 Capturar</button>
-    <button id="autoScan" data-i18n="autoScan" aria-label="Iniciar escaneo automático">🔍 Escaneo Automático</button>
+    <button id="autoScan" data-i18n="autoScan" aria-label="Iniciar escaneo automático" disabled>🔍 Auto Scan</button>
+    <button id="switchCamera" aria-label="Cambiar cámara" disabled class="secondary-btn">🔄 Cambiar</button>
   </div>
 
-  <div id="result" aria-live="polite">
-    <span data-i18n="plateDetected">Placa Detectada:</span> <span id="plate">-</span>
+  <div class="results">
+    <div class="result-item">
+      <span data-i18n="plateDetected">Placa Detectada:</span>
+      <div class="plate-text" id="plateText">-</div>
+    </div>
+    <div class="result-item">
+      <span data-i18n="confidence">Confianza:</span> <span id="confidenceValue">-%</span>
+      <div class="confidence-bar">
+        <div class="confidence-fill" id="confidenceFill"></div>
+      </div>
+    </div>
   </div>
-  <div id="confidence" aria-live="polite">
-    <span data-i18n="confidence">Confianza:</span> <span id="confidenceValue">-</span>
+
+  <div id="loading" aria-live="polite">
+    <div class="spinner"></div>
+    <div data-i18n="processing">Procesando...</div>
   </div>
-  <div id="loading" aria-live="polite" data-i18n="processing">Procesando...</div>
+
   <div id="error" role="alert"></div>
 
-  <button id="consult" data-i18n="consulting" aria-label="Consultar en AutoSeguro" disabled>🔍 Consultar en AutoSeguro</button>
+  <div class="controls">
+    <button id="consult" data-i18n="consulting" aria-label="Consultar en AutoSeguro" disabled>🔍 Consultar AutoSeguro</button>
+    <button id="history" aria-label="Ver historial" class="secondary-btn">📋 Historial</button>
+    <button id="settings" aria-label="Configuración" class="secondary-btn">⚙️ Config</button>
+  </div>
 
-  <script src="/utils.js"></script>
-  <script src="/charset.js"></script>
-  <script src="/ocr.js"></script>
-  <script src="/main.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js" defer></script>
+  <div class="install-prompt" id="installPrompt">
+    <h3>📱 ¡Instala la App!</h3>
+    <p>Instala esta aplicación en tu dispositivo para un acceso más rápido y funcionalidad offline.</p>
+    <button id="installButton">Instalar Ahora</button>
+    <button id="dismissInstall" class="secondary-btn">Más tarde</button>
+  </div>
+
+  <div class="history-panel" id="historyPanel">
+    <h3>📋 Historial de Detecciones</h3>
+    <div id="historyList"></div>
+    <div class="controls">
+      <button id="clearHistory" class="secondary-btn">🗑️ Limpiar</button>
+      <button id="exportHistory" class="secondary-btn">📤 Exportar</button>
+      <button id="closeHistory" class="secondary-btn">❌ Cerrar</button>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="utils.js"></script>
+  <script src="main.js"></script>
+  
+  <!-- External dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  
   <script>
-    // Generar iconos automáticamente si no existen
+    // Service Worker registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('sw.js');
+          console.log('Service Worker registrado:', registration.scope);
+          
+          // Handle updates
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                showToast('Nueva versión disponible. Recarga para actualizar.');
+              }
+            });
+          });
+        } catch (error) {
+          console.warn('Service Worker no se pudo registrar:', error);
+        }
+      });
+    }
+
+    // PWA Install prompt
+    let deferredPrompt;
+    const installPrompt = document.getElementById('installPrompt');
+    const installButton = document.getElementById('installButton');
+    const dismissButton = document.getElementById('dismissInstall');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      
+      // Show install prompt after 30 seconds if not already installed
+      setTimeout(() => {
+        if (!window.matchMedia('(display-mode: standalone)').matches) {
+          installPrompt.classList.add('show');
+        }
+      }, 30000);
+    });
+
+    installButton.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('Install prompt outcome:', outcome);
+        deferredPrompt = null;
+        installPrompt.classList.remove('show');
+      }
+    });
+
+    dismissButton.addEventListener('click', () => {
+      installPrompt.classList.remove('show');
+      localStorage.setItem('installPromptDismissed', Date.now());
+    });
+
+    // Check if app is installed
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA instalada exitosamente');
+      installPrompt.classList.remove('show');
+      showToast('¡Aplicación instalada correctamente!');
+    });
+
+    // Generate missing icons automatically
     async function generateMissingIcons() {
-      const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+      const sizes = [16, 32, 72, 96, 128, 144, 152, 192, 384, 512];
+      
       for (const size of sizes) {
         try {
-          const response = await fetch(`/icons/icon-${size}x${size}.png`);
+          const response = await fetch(`icons/icon-${size}x${size}.png`);
           if (!response.ok) {
-            const iconData = await IconGenerator.generateIconFile(size);
-            console.log(`Icono ${size}x${size} generado automáticamente`);
-            // Note: Actual icon saving requires server-side support or manual intervention
+            console.log(`Generando icono ${size}x${size} automáticamente`);
+            const iconData = IconGenerator.generateIcon(size);
+            // Store in memory for this session
+            sessionStorage.setItem(`icon-${size}`, iconData);
           }
-        } catch {
+        } catch (error) {
           console.log(`Usando icono SVG generado para ${size}x${size}`);
+          const iconData = IconGenerator.generateIcon(size);
+          sessionStorage.setItem(`icon-${size}`, iconData);
         }
       }
     }
 
-    // Ejecutar al cargar
+    // Connectivity status
+    function updateConnectivityStatus() {
+      const indicator = document.getElementById('statusIndicator');
+      if (navigator.onLine) {
+        indicator.textContent = '🌐 En línea';
+        indicator.className = 'status-indicator status-online';
+      } else {
+        indicator.textContent = '📵 Sin conexión';
+        indicator.className = 'status-indicator status-offline';
+      }
+    }
+
+    window.addEventListener('online', updateConnectivityStatus);
+    window.addEventListener('offline', updateConnectivityStatus);
+
+    // Toast notification helper
+    function showToast(message, duration = 3000) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, duration);
+    }
+
+    // Initialize on DOM load
     document.addEventListener('DOMContentLoaded', () => {
+      updateConnectivityStatus();
       generateMissingIcons();
-      // Lazy load WebAssembly files
-      const wasmScript = document.createElement('script');
-      wasmScript.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm';
-      document.head.appendChild(wasmScript);
+      
+      // Check if install prompt was dismissed recently
+      const dismissed = localStorage.getItem('installPromptDismissed');
+      if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) {
+        // Don't show for 7 days after dismissal
+        installPrompt.style.display = 'none';
+      }
     });
   </script>
 </body>
